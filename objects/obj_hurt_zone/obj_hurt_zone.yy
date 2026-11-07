@@ -30,8 +30,8 @@
   "resourceVersion":"2.0",
   "solid":false,
   "spriteId":{
-    "name":"spr_hurt_zone",
-    "path":"sprites/spr_hurt_zone/spr_hurt_zone.yy",
+    "name":"spr_bonfire",
+    "path":"sprites/spr_bonfire/spr_bonfire.yy",
   },
   "spriteMaskId":null,
   "visible":true,

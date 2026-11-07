@@ -88,6 +88,26 @@ if (array_length(_landed) > 0) {
 	vsp = 0;
 }
 
+// Out of fight zone: host/offline drain HP fast (clients get auth via snapshot).
+if (!_client_match && alive && instance_number(obj_fight_zone) > 0) {
+	if (!place_meeting(x, y, obj_fight_zone) && hurt_cooldown <= 0) {
+		hp -= void_out_damage;
+		hurt_cooldown = void_out_interval;
+		hp_idle_timer = 0;
+		if (hp <= 0) {
+			hp = 0;
+			alive = false;
+			deaths += 1;
+			respawn_timer = respawn_time;
+			hsp = 0;
+			vsp = 0;
+			reloading = false;
+			reload_timer = 0;
+			exit;
+		}
+	}
+}
+
 if (shoot_cooldown > 0) {
 	shoot_cooldown -= 1;
 }
@@ -113,7 +133,7 @@ if (input_shoot && !reloading && ammo > 0 && shoot_cooldown <= 0) {
 	_bullet.hsp = lengthdir_x(12, aim_dir);
 	_bullet.vsp = lengthdir_y(12, aim_dir);
 	_bullet.owner = id;
-	_bullet.owner_player_id = player_id;
+	_bullet.owner_player_id = net_id;
 
 	if (_client_match) {
 		// Local muzzle flash only — host owns damage bullets.

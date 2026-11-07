@@ -75,13 +75,13 @@ var _count = array_length(_rows);
 
 if (_net.is_host) {
 	_net.lobby_roster = [{
-		player_id: 1,
+		net_id: 1,
 		name: global.player_name,
 		is_host: true
 	}];
 	for (var _i = 0; _i < array_length(_net.client_player_ids); _i++) {
 		array_push(_net.lobby_roster, {
-			player_id: _net.client_player_ids[_i],
+			net_id: _net.client_player_ids[_i],
 			name: _net.client_names[_i],
 			is_host: false
 		});

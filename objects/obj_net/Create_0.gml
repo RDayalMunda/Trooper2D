@@ -71,7 +71,7 @@ if (is_host) {
 		status_text = "Hosting on port " + string(bound_port);
 		status_detail = "Lobby open";
 		array_push(lobby_roster, {
-			player_id: 1,
+			net_id: 1,
 			name: global.player_name,
 			is_host: true
 		});

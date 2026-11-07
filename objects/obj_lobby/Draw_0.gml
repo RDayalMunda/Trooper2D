@@ -215,7 +215,7 @@ for (var _p = 0; _p < _roster_n; _p++) {
 	}
 
 	var _entry = _net.lobby_roster[_p];
-	var _line = string(_entry.player_id) + ". " + _entry.name;
+	var _line = string(_entry.net_id) + ". " + _entry.name;
 	if (_entry.is_host) {
 		_line += "  (Host)";
 	}

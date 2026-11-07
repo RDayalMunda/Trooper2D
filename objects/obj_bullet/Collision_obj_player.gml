@@ -6,7 +6,7 @@ if (!other.alive) {
 	exit;
 }
 
-if (other.player_id == owner_player_id) {
+if (other.net_id == owner_player_id) {
 	exit;
 }
 

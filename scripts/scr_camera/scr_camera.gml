@@ -141,18 +141,9 @@ function cam_update_follow() {
 		_ty = _player.y + _player.sprite_height * 0.5;
 	}
 
-	var _desired_x;
-	var _desired_y;
-	if (_vw >= room_width) {
-		_desired_x = (room_width - _vw) * 0.5;
-	} else {
-		_desired_x = clamp(_tx - _vw * 0.5, 0, room_width - _vw);
-	}
-	if (_vh >= room_height) {
-		_desired_y = (room_height - _vh) * 0.5;
-	} else {
-		_desired_y = clamp(_ty - _vh * 0.5, 0, room_height - _vh);
-	}
+	// Always center on the player — no room-edge clamp (void outside is fine).
+	var _desired_x = _tx - _vw * 0.5;
+	var _desired_y = _ty - _vh * 0.5;
 
 	var _cur_x = camera_get_view_x(_cam);
 	var _cur_y = camera_get_view_y(_cam);

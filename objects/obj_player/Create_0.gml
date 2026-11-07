@@ -26,6 +26,9 @@ respawn_time = 90;
 hurt_cooldown = 0;
 hurt_cooldown_max = 30;
 hurt_zone_damage = 25;
+// Outside obj_fight_zone — harder than hurt zones.
+void_out_damage = 45;
+void_out_interval = 15;
 
 ammo = 12;
 ammo_max = 12;
@@ -38,7 +41,7 @@ reload_time = 75;
 kills = 0;
 deaths = 0;
 
-player_id = 0;
+net_id = 0;
 is_local = true;
 display_name = "Trooper";
 aim_dir = 0;

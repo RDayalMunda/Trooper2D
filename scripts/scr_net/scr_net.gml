@@ -96,7 +96,7 @@ function net_host_notify_left() {
 /// @function net_find_player(_player_id)
 function net_find_player(_player_id) {
 	with (obj_player) {
-		if (player_id == _player_id) {
+		if (net_id == _player_id) {
 			return id;
 		}
 	}
@@ -105,7 +105,7 @@ function net_find_player(_player_id) {
 
 /// @function player_setup_net(_player, _player_id, _is_local, _display_name)
 function player_setup_net(_player, _player_id, _is_local, _display_name = undefined) {
-	_player.player_id = _player_id;
+	_player.net_id = _player_id;
 	_player.is_local = _is_local;
 	if (_display_name != undefined) {
 		_player.display_name = player_name_sanitize(_display_name);
@@ -544,7 +544,7 @@ function net_collect_results() {
 			name: display_name,
 			kills: clamp(round(kills), 0, 999),
 			deaths: clamp(round(deaths), 0, 999),
-			player_id: player_id
+			net_id: net_id
 		});
 	}
 
@@ -675,7 +675,7 @@ function net_host_send_snapshots() {
 		var _player_count = 0;
 
 		with (obj_player) {
-			buffer_write(other.send_buffer, buffer_u8, player_id);
+			buffer_write(other.send_buffer, buffer_u8, net_id);
 			buffer_write(other.send_buffer, buffer_f32, x);
 			buffer_write(other.send_buffer, buffer_f32, y);
 			buffer_write(other.send_buffer, buffer_f32, aim_dir);
@@ -787,7 +787,7 @@ function net_client_apply_lobby_state(_buffer) {
 			var _name = buffer_read(_buffer, buffer_string);
 			var _is_host = buffer_read(_buffer, buffer_u8) == 1;
 			array_push(lobby_roster, {
-				player_id: _id,
+				net_id: _id,
 				name: _name,
 				is_host: _is_host
 			});
@@ -1048,7 +1048,7 @@ function net_client_apply_snapshot(_buffer) {
 	with (obj_player) {
 		var _keep = false;
 		for (var _s = 0; _s < array_length(_seen); _s++) {
-			if (player_id == _seen[_s]) {
+			if (net_id == _seen[_s]) {
 				_keep = true;
 				break;
 			}

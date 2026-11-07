@@ -1,0 +1,10 @@
+hsp = 0;
+vsp = 0;
+grav = 0.35;
+move_speed = 4;
+jet_acc = 0.55;
+max_fall = 8;
+fuel = 45;
+fuel_max = 45;
+shoot_cooldown = 0;
+shoot_cooldown_max = 10;

@@ -57,3 +57,6 @@ net_aim_from = 0;
 net_aim_to = 0;
 net_interp_t = 1;
 net_interp_dur = 3;
+
+// Camera zoom (guns can expand zoom_levels later)
+cam_init_player(id);

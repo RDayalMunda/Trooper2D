@@ -23,6 +23,8 @@ shooting = false;
 
 reload_pressed = false;
 reload_down = false;
+zoom_pressed = false;
+zoom_down = false;
 
 // Rest positions (GUI space)
 gui_w = display_get_gui_width();
@@ -32,9 +34,15 @@ left_rest_y = gui_h - 110;
 right_rest_x = gui_w - 110;
 right_rest_y = gui_h - 110;
 
+var _zoom = match_hud_zoom_rect();
+zoom_x1 = _zoom[0];
+zoom_y1 = _zoom[1];
+zoom_x2 = _zoom[2];
+zoom_y2 = _zoom[3];
+
 reload_w = 110;
 reload_h = 44;
-reload_x1 = gui_w - 16 - reload_w;
-reload_y1 = 64;
-reload_x2 = reload_x1 + reload_w;
+reload_x1 = zoom_x1;
+reload_y1 = zoom_y2 + 8;
+reload_x2 = zoom_x2;
 reload_y2 = reload_y1 + reload_h;

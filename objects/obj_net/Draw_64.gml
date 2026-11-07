@@ -61,12 +61,11 @@ if (phase == "match") {
 	draw_set_color(c_white);
 	draw_text_transformed(_gw * 0.5, round(26 * _s), _timer_text, _ts, _ts, 0);
 
-	var _map_w = round(140 * _s);
-	var _map_x2 = _gw - 12;
-	var _map_x1 = _map_x2 - _map_w;
-	draw_ui_panel(_map_x1, 10, _map_x2, round(44 * _s), 0.42);
+	// Map label sits left of the zoom button (drawn by touch controls).
+	var _map = match_hud_map_rect();
+	draw_ui_panel(_map[0], _map[1], _map[2], _map[3], 0.42);
 	draw_set_color(c_white);
-	draw_text_transformed((_map_x1 + _map_x2) * 0.5, round(27 * _s), _map_text, _ts * 0.9, _ts * 0.9, 0);
+	draw_text_transformed((_map[0] + _map[2]) * 0.5, (_map[1] + _map[3]) * 0.5, _map_text, _ts * 0.9, _ts * 0.9, 0);
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);

@@ -39,6 +39,7 @@
     {"id":{"name":"scr_identity","path":"scripts/scr_identity/scr_identity.yy",},},
     {"id":{"name":"scr_lobby","path":"scripts/scr_lobby/scr_lobby.yy",},},
     {"id":{"name":"scr_net","path":"scripts/scr_net/scr_net.yy",},},
+    {"id":{"name":"scr_camera","path":"scripts/scr_camera/scr_camera.yy",},},
     {"id":{"name":"scr_spawn","path":"scripts/scr_spawn/scr_spawn.yy",},},
     {"id":{"name":"scr_touch","path":"scripts/scr_touch/scr_touch.yy",},},
     {"id":{"name":"spr_bullet","path":"sprites/spr_bullet/spr_bullet.yy",},},

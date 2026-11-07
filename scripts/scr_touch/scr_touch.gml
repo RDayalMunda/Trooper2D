@@ -36,6 +36,30 @@ function ui_back_pressed() {
 	return keyboard_check_pressed(vk_backspace);
 }
 
+/// @function match_hud_zoom_rect()
+/// @description Top-right zoom button in GUI space: [x1,y1,x2,y2]
+function match_hud_zoom_rect() {
+	var _gw = display_get_gui_width();
+	var _s = ui_scale();
+	var _w = round(76 * _s);
+	var _h = round(44 * _s);
+	var _x2 = _gw - 12;
+	var _x1 = _x2 - _w;
+	var _y1 = 10;
+	return [_x1, _y1, _x2, _y1 + _h];
+}
+
+/// @function match_hud_map_rect()
+/// @description Map name panel sits just left of the zoom button.
+function match_hud_map_rect() {
+	var _z = match_hud_zoom_rect();
+	var _s = ui_scale();
+	var _w = round(140 * _s);
+	var _x2 = _z[0] - 8;
+	var _x1 = _x2 - _w;
+	return [_x1, _z[1], _x2, _z[3]];
+}
+
 /// @function ui_pointer_pressed_in(_x1, _y1, _x2, _y2, _use_gui)
 function ui_pointer_pressed_in(_x1, _y1, _x2, _y2, _use_gui = false) {
 	if (_x2 <= _x1 || _y2 <= _y1) {

@@ -3,6 +3,7 @@ if (!instance_exists(obj_net) || obj_net.phase != "match") {
 	right_active = false;
 	shooting = false;
 	reload_pressed = false;
+	zoom_pressed = false;
 	exit;
 }
 
@@ -14,18 +15,27 @@ left_rest_x = round(120 * _s);
 left_rest_y = gui_h - round(120 * _s);
 right_rest_x = gui_w - round(120 * _s);
 right_rest_y = gui_h - round(120 * _s);
-reload_w = round(120 * _s);
+
+var _zoom = match_hud_zoom_rect();
+zoom_x1 = _zoom[0];
+zoom_y1 = _zoom[1];
+zoom_x2 = _zoom[2];
+zoom_y2 = _zoom[3];
+
+reload_w = round(max(120 * _s, zoom_x2 - zoom_x1));
 reload_h = round(52 * _s);
-reload_x1 = gui_w - 16 - reload_w;
-reload_y1 = 64;
-reload_x2 = reload_x1 + reload_w;
+reload_x1 = zoom_x2 - reload_w;
+reload_y1 = zoom_y2 + 8;
+reload_x2 = zoom_x2;
 reload_y2 = reload_y1 + reload_h;
 
 var _zone_mid_x = gui_w * 0.5;
 var _zone_top = gui_h * 0.32;
 
 reload_pressed = false;
+zoom_pressed = false;
 var _reload_held = false;
+var _zoom_held = false;
 
 // Release sticks if their finger lifted
 if (left_active) {
@@ -55,7 +65,13 @@ for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
 	var _tx = device_mouse_x_to_gui(_d);
 	var _ty = device_mouse_y_to_gui(_d);
 
-	// Reload button (top-right) — held OR pressed
+	// Zoom button (top-right)
+	if (point_in_rectangle(_tx, _ty, zoom_x1, zoom_y1, zoom_x2, zoom_y2)) {
+		_zoom_held = true;
+		continue;
+	}
+
+	// Reload button — held OR pressed
 	if (point_in_rectangle(_tx, _ty, reload_x1, reload_y1, reload_x2, reload_y2)) {
 		_reload_held = true;
 		continue;
@@ -84,6 +100,15 @@ for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
 	}
 }
 
+if (_zoom_held) {
+	if (!zoom_down) {
+		zoom_pressed = true;
+	}
+	zoom_down = true;
+} else {
+	zoom_down = false;
+}
+
 if (_reload_held) {
 	if (!reload_down) {
 		reload_pressed = true;
@@ -91,6 +116,13 @@ if (_reload_held) {
 	reload_down = true;
 } else {
 	reload_down = false;
+}
+
+if (zoom_pressed) {
+	var _local = cam_find_local_player();
+	if (_local != noone) {
+		cam_cycle_zoom(_local);
+	}
 }
 
 // Update left stick

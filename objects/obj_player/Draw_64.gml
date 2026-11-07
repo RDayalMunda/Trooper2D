@@ -5,14 +5,16 @@ if (!is_local) {
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);
 
-var _hud_x = 16;
-var _hud_y = 16;
-var _bar_w = 160;
-var _bar_h = 12;
-var _panel_w = 200;
-var _panel_h = 148;
+// Nudge right so the top bar stays clear of the zoom/map cluster visually.
+var _s = ui_scale();
+var _hud_x = round(24 * _s);
+var _hud_y = round(16 * _s);
+var _bar_w = round(160 * _s);
+var _bar_h = round(12 * _s);
+var _panel_w = round(200 * _s);
+var _panel_h = round(148 * _s);
 
-draw_ui_panel(_hud_x - 8, _hud_y - 8, _hud_x - 8 + _panel_w, _hud_y - 8 + _panel_h, 0.40);
+draw_ui_panel(_hud_x - round(8 * _s), _hud_y - round(8 * _s), _hud_x - round(8 * _s) + _panel_w, _hud_y - round(8 * _s) + _panel_h, 0.40);
 
 draw_set_color(c_white);
 draw_text(_hud_x, _hud_y, display_name);

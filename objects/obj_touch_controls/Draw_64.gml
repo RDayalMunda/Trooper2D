@@ -17,10 +17,18 @@ if (shooting) {
 }
 draw_set_alpha(_old_a);
 
-// Reload button
-draw_ui_panel(reload_x1, reload_y1, reload_x2, reload_y2, reload_down ? 0.55 : 0.40);
+var _local = cam_find_local_player();
+var _zoom_label = cam_zoom_label(_local);
+
+// Zoom button (top-right)
+draw_ui_panel(zoom_x1, zoom_y1, zoom_x2, zoom_y2, zoom_down ? 0.55 : 0.40);
 draw_set_halign(fa_center);
 draw_set_valign(fa_middle);
+draw_set_color(c_white);
+draw_text((zoom_x1 + zoom_x2) * 0.5, (zoom_y1 + zoom_y2) * 0.5, _zoom_label);
+
+// Reload button
+draw_ui_panel(reload_x1, reload_y1, reload_x2, reload_y2, reload_down ? 0.55 : 0.40);
 draw_set_color(c_white);
 draw_text((reload_x1 + reload_x2) * 0.5, (reload_y1 + reload_y2) * 0.5, "RELOAD");
 draw_set_halign(fa_left);

@@ -83,18 +83,28 @@ function player_setup_net(_player, _player_id, _is_local, _display_name = undefi
 
 /// @function player_gather_input(_player)
 function player_gather_input(_player) {
-	_player.input_left = keyboard_check(ord("A")) || keyboard_check(vk_left);
-	_player.input_right = keyboard_check(ord("D")) || keyboard_check(vk_right);
-	// Up thrust = jet (W / Up / Space). No separate jump.
-	_player.input_jet = keyboard_check(ord("W")) || keyboard_check(vk_up) || keyboard_check(vk_space);
-	_player.input_shoot = mouse_check_button(mb_left);
-	_player.input_reload = keyboard_check_pressed(ord("R"));
+	var _mobile = input_is_mobile_touch();
 
-	var _cx = _player.x + _player.sprite_width * 0.5;
-	var _cy = _player.y + _player.sprite_height * 0.5;
-	_player.aim_dir = point_direction(_cx, _cy, mouse_x, mouse_y);
+	_player.input_left = false;
+	_player.input_right = false;
+	_player.input_jet = false;
+	_player.input_shoot = false;
+	_player.input_reload = false;
 
-	// Twin-stick / touch overlay (also works with mouse on desktop for testing)
+	if (!_mobile) {
+		_player.input_left = keyboard_check(ord("A")) || keyboard_check(vk_left);
+		_player.input_right = keyboard_check(ord("D")) || keyboard_check(vk_right);
+		// Up thrust = jet (W / Up / Space). No separate jump.
+		_player.input_jet = keyboard_check(ord("W")) || keyboard_check(vk_up) || keyboard_check(vk_space);
+		_player.input_shoot = mouse_check_button(mb_left);
+		_player.input_reload = keyboard_check_pressed(ord("R"));
+
+		var _cx = _player.x + _player.sprite_width * 0.5;
+		var _cy = _player.y + _player.sprite_height * 0.5;
+		_player.aim_dir = point_direction(_cx, _cy, mouse_x, mouse_y);
+	}
+
+	// Twin-stick / touch overlay
 	if (instance_exists(obj_touch_controls)) {
 		var _t = obj_touch_controls;
 		if (_t.left_active) {
@@ -107,6 +117,8 @@ function player_gather_input(_player) {
 			if (_t.shooting) {
 				_player.input_shoot = true;
 			}
+		} else if (_mobile) {
+			// Keep last aim on mobile when stick is released; never aim-to-tap.
 		}
 		if (_t.reload_pressed) {
 			_player.input_reload = true;

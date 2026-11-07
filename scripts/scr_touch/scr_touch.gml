@@ -3,6 +3,12 @@
 #macro TOUCH_FIRE_THRESHOLD 0.55
 #macro TOUCH_MAX_DEVICES 5
 
+/// @function input_is_mobile_touch()
+/// @description True on phones/tablets where taps must not act as mouse fire.
+function input_is_mobile_touch() {
+	return (os_type == os_android || os_type == os_ios);
+}
+
 /// @function draw_ui_panel(_x1, _y1, _x2, _y2, _alpha)
 function draw_ui_panel(_x1, _y1, _x2, _y2, _alpha = 0.45) {
 	var _old_a = draw_get_alpha();

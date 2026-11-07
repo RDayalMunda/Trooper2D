@@ -85,7 +85,8 @@ function player_setup_net(_player, _player_id, _is_local, _display_name = undefi
 function player_gather_input(_player) {
 	_player.input_left = keyboard_check(ord("A")) || keyboard_check(vk_left);
 	_player.input_right = keyboard_check(ord("D")) || keyboard_check(vk_right);
-	_player.input_jet = keyboard_check(vk_space);
+	// Up thrust = jet (W / Up / Space). No separate jump.
+	_player.input_jet = keyboard_check(ord("W")) || keyboard_check(vk_up) || keyboard_check(vk_space);
 	_player.input_shoot = mouse_check_button(mb_left);
 	_player.input_reload = keyboard_check_pressed(ord("R"));
 
@@ -482,6 +483,7 @@ function net_host_send_snapshots() {
 			buffer_write(other.send_buffer, buffer_u8, alive ? 1 : 0);
 			buffer_write(other.send_buffer, buffer_u8, ammo);
 			buffer_write(other.send_buffer, buffer_u8, reloading ? 1 : 0);
+			buffer_write(other.send_buffer, buffer_u8, clamp(round(fuel), 0, 255));
 			buffer_write(other.send_buffer, buffer_u16, kills);
 			buffer_write(other.send_buffer, buffer_u16, deaths);
 			buffer_write(other.send_buffer, buffer_string, display_name);
@@ -728,6 +730,7 @@ function net_client_apply_snapshot(_buffer) {
 		var _alive = buffer_read(_buffer, buffer_u8) == 1;
 		var _ammo = buffer_read(_buffer, buffer_u8);
 		var _reloading = buffer_read(_buffer, buffer_u8) == 1;
+		var _fuel = buffer_read(_buffer, buffer_u8);
 		var _kills = buffer_read(_buffer, buffer_u16);
 		var _deaths = buffer_read(_buffer, buffer_u16);
 		var _name = buffer_read(_buffer, buffer_string);
@@ -747,6 +750,7 @@ function net_client_apply_snapshot(_buffer) {
 		_player.alive = _alive;
 		_player.ammo = _ammo;
 		_player.reloading = _reloading;
+		_player.fuel = _fuel;
 		_player.kills = _kills;
 		_player.deaths = _deaths;
 		_player.display_name = player_name_sanitize(_name);

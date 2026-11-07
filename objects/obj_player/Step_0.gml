@@ -5,6 +5,12 @@ if (instance_exists(obj_net) && (obj_net.is_client || obj_net.phase != "match"))
 
 if (hurt_cooldown > 0) {
 	hurt_cooldown -= 1;
+	hp_idle_timer = 0;
+} else if (alive && hp < hp_max) {
+	hp_idle_timer += 1;
+	if (hp_idle_timer >= hp_regen_delay) {
+		hp = min(hp_max, hp + hp_regen);
+	}
 }
 
 if (!alive) {
@@ -20,6 +26,8 @@ if (!alive) {
 		spawn_point_place_player(id);
 		hp = hp_max;
 		fuel = fuel_max;
+		fuel_idle_timer = 0;
+		hp_idle_timer = 0;
 		ammo = ammo_max;
 		reloading = false;
 		reload_timer = 0;
@@ -37,18 +45,23 @@ if (is_local) {
 hsp = (input_right - input_left) * move_speed;
 vsp = min(vsp + grav, max_fall);
 
+// Up / W / Space = jet thrust (no separate jump).
 if (input_jet && fuel > 0) {
 	vsp -= jet_acc;
-	fuel -= 1;
+	vsp = max(vsp, -max_rise);
+	fuel = max(0, fuel - fuel_drain);
+	fuel_idle_timer = 0;
+} else {
+	fuel_idle_timer += 1;
+	if (fuel_idle_timer >= fuel_regen_delay && fuel < fuel_max) {
+		fuel = min(fuel_max, fuel + fuel_regen);
+	}
 }
 
 move_and_collide(hsp, 0, obj_solid);
 
 var _landed = move_and_collide(0, vsp, obj_solid);
 if (array_length(_landed) > 0) {
-	if (vsp > 0) {
-		fuel = fuel_max;
-	}
 	vsp = 0;
 }
 

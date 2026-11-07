@@ -10,10 +10,9 @@ var _hud_x = 16;
 var _hud_y = 16;
 
 draw_text(_hud_x, _hud_y, display_name);
-draw_text(_hud_x, _hud_y + 20, "HP: " + string(hp) + " / " + string(hp_max));
 
 var _bar_x = _hud_x;
-var _bar_y = _hud_y + 44;
+var _bar_y = _hud_y + 24;
 var _bar_w = 160;
 var _bar_h = 12;
 draw_set_color(c_dkgray);
@@ -24,18 +23,31 @@ draw_rectangle(_bar_x, _bar_y, _bar_x + _fill, _bar_y + _bar_h, false);
 draw_set_color(c_white);
 draw_rectangle(_bar_x, _bar_y, _bar_x + _bar_w, _bar_y + _bar_h, true);
 
+// Jet fuel gauge
+draw_set_color(c_white);
+draw_text(_hud_x, _bar_y + 20, "Jet");
+var _fuel_y = _bar_y + 40;
+draw_set_color(c_dkgray);
+draw_rectangle(_bar_x, _fuel_y, _bar_x + _bar_w, _fuel_y + _bar_h, false);
+var _fuel_col = (fuel / fuel_max > 0.25) ? c_aqua : c_orange;
+draw_set_color(_fuel_col);
+var _fuel_fill = (fuel / fuel_max) * _bar_w;
+draw_rectangle(_bar_x, _fuel_y, _bar_x + _fuel_fill, _fuel_y + _bar_h, false);
+draw_set_color(c_white);
+draw_rectangle(_bar_x, _fuel_y, _bar_x + _bar_w, _fuel_y + _bar_h, true);
+
 var _ammo_text;
 if (reloading) {
 	_ammo_text = "Ammo: RELOADING...";
 } else {
 	_ammo_text = "Ammo: " + string(ammo) + " / " + string(ammo_max) + "  [R]";
 }
-draw_text(_hud_x, _bar_y + 24, _ammo_text);
+draw_text(_hud_x, _fuel_y + 24, _ammo_text);
 
-draw_text(_hud_x, _bar_y + 48, "Kills: " + string(kills) + "   Deaths: " + string(deaths));
+draw_text(_hud_x, _fuel_y + 48, "Kills: " + string(kills) + "   Deaths: " + string(deaths));
 
 // Simple roster
-var _roster_y = _bar_y + 80;
+var _roster_y = _fuel_y + 80;
 draw_set_color(c_ltgray);
 draw_text(_hud_x, _roster_y, "Players");
 _roster_y += 20;

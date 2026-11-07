@@ -8,6 +8,7 @@ if (!alive || hurt_cooldown > 0) {
 
 hp -= hurt_zone_damage;
 hurt_cooldown = hurt_cooldown_max;
+hp_idle_timer = 0;
 
 if (hp <= 0) {
 	hp = 0;

@@ -19,12 +19,20 @@
   },
   "name":"Trooper2D",
   "resources":[
-    {"id":{"name":"Room1","path":"rooms/Room1/Room1.yy",},},
+    {"id":{"name":"obj_bullet","path":"objects/obj_bullet/obj_bullet.yy",},},
+    {"id":{"name":"obj_dummy","path":"objects/obj_dummy/obj_dummy.yy",},},
+    {"id":{"name":"obj_player","path":"objects/obj_player/obj_player.yy",},},
+    {"id":{"name":"obj_solid","path":"objects/obj_solid/obj_solid.yy",},},
+    {"id":{"name":"room_arena_green","path":"rooms/room_arena_green/room_arena_green.yy",},},
+    {"id":{"name":"spr_bullet","path":"sprites/spr_bullet/spr_bullet.yy",},},
+    {"id":{"name":"spr_dummy","path":"sprites/spr_dummy/spr_dummy.yy",},},
+    {"id":{"name":"spr_player","path":"sprites/spr_player/spr_player.yy",},},
+    {"id":{"name":"spr_solid","path":"sprites/spr_solid/spr_solid.yy",},},
   ],
   "resourceType":"GMProject",
   "resourceVersion":"2.0",
   "RoomOrderNodes":[
-    {"roomId":{"name":"Room1","path":"rooms/Room1/Room1.yy",},},
+    {"roomId":{"name":"room_arena_green","path":"rooms/room_arena_green/room_arena_green.yy",},},
   ],
   "templateType":"game",
   "TextureGroups":[

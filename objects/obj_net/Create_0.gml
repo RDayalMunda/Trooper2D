@@ -17,6 +17,7 @@ host_port = NET_PORT_MIN;
 client_ips = [];
 client_ports = [];
 client_player_ids = [];
+client_names = [];
 next_player_id = 2;
 
 send_buffer = buffer_create(2048, buffer_grow, 1);

@@ -11,7 +11,6 @@ if (menu_state == "connecting") {
 	}
 
 	if (instance_exists(obj_net) && obj_net.joined) {
-		// room_goto is triggered by the WELCOME handler.
 		exit;
 	}
 
@@ -21,6 +20,28 @@ if (menu_state == "connecting") {
 		global.menu_message = "No host found on " + global.join_ip + " (ports " + string(NET_PORT_MIN) + "-" + string(NET_PORT_MAX) + ")";
 		menu_state = "main";
 		connect_timer = 0;
+	}
+	exit;
+}
+
+if (menu_state == "customize") {
+	customize_blink += 1;
+
+	if (string_length(keyboard_string) > PLAYER_NAME_MAX) {
+		keyboard_string = string_copy(keyboard_string, 1, PLAYER_NAME_MAX);
+	}
+
+	if (keyboard_check_pressed(vk_escape)) {
+		menu_state = "main";
+		keyboard_string = "";
+		exit;
+	}
+
+	if (keyboard_check_pressed(vk_enter)) {
+		player_name_save(keyboard_string);
+		global.menu_message = "Name set to \"" + global.player_name + "\"";
+		menu_state = "main";
+		keyboard_string = "";
 	}
 	exit;
 }
@@ -75,6 +96,11 @@ switch (_clicked) {
 		instance_create_layer(0, 0, "Instances", obj_net);
 		break;
 	case 2:
+		menu_state = "customize";
+		customize_blink = 0;
+		keyboard_string = global.player_name;
+		break;
+	case 3:
 		game_end();
 		break;
 }

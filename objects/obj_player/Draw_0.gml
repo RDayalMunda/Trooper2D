@@ -12,3 +12,10 @@ if (is_local) {
 	aim_dir = _dir;
 }
 draw_line(_cx, _cy, _cx + lengthdir_x(24, _dir), _cy + lengthdir_y(24, _dir));
+
+draw_set_halign(fa_center);
+draw_set_valign(fa_bottom);
+draw_set_color(c_white);
+draw_text(_cx, y - 4, display_name);
+draw_set_halign(fa_left);
+draw_set_valign(fa_top);

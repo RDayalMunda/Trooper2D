@@ -30,6 +30,7 @@ kills = 0;
 
 player_id = 0;
 is_local = true;
+display_name = "Trooper";
 aim_dir = 0;
 input_left = false;
 input_right = false;

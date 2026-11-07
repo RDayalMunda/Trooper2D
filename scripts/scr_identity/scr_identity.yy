@@ -1,0 +1,13 @@
+{
+  "$GMScript":"v1",
+  "%Name":"scr_identity",
+  "isCompatibility":false,
+  "isDnD":false,
+  "name":"scr_identity",
+  "parent":{
+    "name":"Trooper2D",
+    "path":"Trooper2D.yyp",
+  },
+  "resourceType":"GMScript",
+  "resourceVersion":"2.0",
+}

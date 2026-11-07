@@ -35,10 +35,18 @@ function net_find_player(_player_id) {
 	return noone;
 }
 
-/// @function player_setup_net(_player, _player_id, _is_local)
-function player_setup_net(_player, _player_id, _is_local) {
+/// @function player_setup_net(_player, _player_id, _is_local, _display_name)
+function player_setup_net(_player, _player_id, _is_local, _display_name = undefined) {
 	_player.player_id = _player_id;
 	_player.is_local = _is_local;
+	if (_display_name != undefined) {
+		_player.display_name = player_name_sanitize(_display_name);
+	} else if (_is_local) {
+		if (!variable_global_exists("player_name")) {
+			player_name_load();
+		}
+		_player.display_name = global.player_name;
+	}
 	if (_player_id == 1) {
 		_player.image_blend = make_color_rgb(80, 200, 255);
 	} else {
@@ -81,11 +89,18 @@ function net_host_find_client(_ip, _port) {
 	return -1;
 }
 
-/// @function net_host_add_client(_ip, _port)
-function net_host_add_client(_ip, _port) {
+/// @function net_host_add_client(_ip, _port, _display_name)
+function net_host_add_client(_ip, _port, _display_name) {
+	var _name = player_name_sanitize(_display_name);
 	var _existing = net_host_find_client(_ip, _port);
 	if (_existing >= 0) {
-		return obj_net.client_player_ids[_existing];
+		var _existing_id = obj_net.client_player_ids[_existing];
+		obj_net.client_names[_existing] = _name;
+		var _existing_player = net_find_player(_existing_id);
+		if (_existing_player != noone) {
+			_existing_player.display_name = _name;
+		}
+		return _existing_id;
 	}
 
 	var _pid = obj_net.next_player_id;
@@ -93,21 +108,29 @@ function net_host_add_client(_ip, _port) {
 	array_push(obj_net.client_ips, _ip);
 	array_push(obj_net.client_ports, _port);
 	array_push(obj_net.client_player_ids, _pid);
+	array_push(obj_net.client_names, _name);
 
-	if (net_find_player(_pid) == noone) {
-		player_spawn_at_point(_pid, false);
+	var _player = net_find_player(_pid);
+	if (_player == noone) {
+		_player = player_spawn_at_point(_pid, false);
 	}
+	player_setup_net(_player, _pid, false, _name);
 
 	obj_net.status_text = "Hosting on port " + string(obj_net.bound_port);
-	obj_net.status_detail = "Player " + string(_pid) + " joined (" + string(array_length(obj_net.client_ips)) + " client(s))";
+	obj_net.status_detail = _name + " joined (" + string(array_length(obj_net.client_ips)) + " client(s))";
 	return _pid;
 }
 
 /// @function net_client_send_join()
 function net_client_send_join() {
+	if (!variable_global_exists("player_name")) {
+		player_name_load();
+	}
+
 	with (obj_net) {
 		buffer_seek(send_buffer, buffer_seek_start, 0);
 		buffer_write(send_buffer, buffer_u8, NET_MSG_JOIN);
+		buffer_write(send_buffer, buffer_string, global.player_name);
 		var _size = buffer_tell(send_buffer);
 
 		if (joined) {
@@ -182,6 +205,7 @@ function net_host_send_snapshots() {
 			buffer_write(other.send_buffer, buffer_u8, ammo);
 			buffer_write(other.send_buffer, buffer_u8, reloading ? 1 : 0);
 			buffer_write(other.send_buffer, buffer_u16, kills);
+			buffer_write(other.send_buffer, buffer_string, display_name);
 			_player_count += 1;
 		}
 
@@ -217,7 +241,11 @@ function net_host_send_snapshots() {
 /// @function net_host_handle_message(_msg, _buffer, _ip, _port)
 function net_host_handle_message(_msg, _buffer, _ip, _port) {
 	if (_msg == NET_MSG_JOIN) {
-		var _pid = net_host_add_client(_ip, _port);
+		var _join_name = PLAYER_NAME_DEFAULT;
+		if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
+			_join_name = buffer_read(_buffer, buffer_string);
+		}
+		var _pid = net_host_add_client(_ip, _port, _join_name);
 		net_host_send_welcome(_ip, _port, _pid);
 		return;
 	}
@@ -291,13 +319,14 @@ function net_client_apply_snapshot(_buffer) {
 		var _ammo = buffer_read(_buffer, buffer_u8);
 		var _reloading = buffer_read(_buffer, buffer_u8) == 1;
 		var _kills = buffer_read(_buffer, buffer_u16);
+		var _name = buffer_read(_buffer, buffer_string);
 
 		array_push(_seen, _pid);
 
 		var _player = net_find_player(_pid);
 		if (_player == noone) {
 			_player = instance_create_layer(_x, _y, "Instances", obj_player);
-			player_setup_net(_player, _pid, _pid == obj_net.local_player_id);
+			player_setup_net(_player, _pid, _pid == obj_net.local_player_id, _name);
 		}
 
 		_player.x = _x;
@@ -308,6 +337,7 @@ function net_client_apply_snapshot(_buffer) {
 		_player.ammo = _ammo;
 		_player.reloading = _reloading;
 		_player.kills = _kills;
+		_player.display_name = player_name_sanitize(_name);
 		_player.is_local = (_pid == obj_net.local_player_id);
 	}
 

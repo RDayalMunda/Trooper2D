@@ -1,3 +1,8 @@
+// Clients do not simulate — host is authoritative.
+if (instance_exists(obj_net) && obj_net.is_client) {
+	exit;
+}
+
 if (hurt_cooldown > 0) {
 	hurt_cooldown -= 1;
 }
@@ -5,6 +10,11 @@ if (hurt_cooldown > 0) {
 if (!alive) {
 	hsp = 0;
 	vsp = 0;
+	input_left = false;
+	input_right = false;
+	input_jet = false;
+	input_shoot = false;
+	input_reload = false;
 	respawn_timer -= 1;
 	if (respawn_timer <= 0) {
 		spawn_point_place_player(id);
@@ -20,14 +30,14 @@ if (!alive) {
 	exit;
 }
 
-var _left = keyboard_check(ord("A")) || keyboard_check(vk_left);
-var _right = keyboard_check(ord("D")) || keyboard_check(vk_right);
-hsp = (_right - _left) * move_speed;
+if (is_local) {
+	player_gather_input(id);
+}
 
+hsp = (input_right - input_left) * move_speed;
 vsp = min(vsp + grav, max_fall);
 
-var _jet = keyboard_check(vk_space);
-if (_jet && fuel > 0) {
+if (input_jet && fuel > 0) {
 	vsp -= jet_acc;
 	fuel -= 1;
 }
@@ -53,21 +63,22 @@ if (reloading) {
 		reloading = false;
 	}
 } else {
-	var _want_reload = keyboard_check_pressed(ord("R")) || (ammo <= 0);
+	var _want_reload = input_reload || (ammo <= 0);
 	if (_want_reload && ammo < ammo_max) {
 		reloading = true;
 		reload_timer = reload_time;
 	}
 }
 
-if (mouse_check_button(mb_left) && !reloading && ammo > 0 && shoot_cooldown <= 0) {
+if (input_shoot && !reloading && ammo > 0 && shoot_cooldown <= 0) {
 	var _cx = x + sprite_width * 0.5;
 	var _cy = y + sprite_height * 0.5;
-	var _dir = point_direction(_cx, _cy, mouse_x, mouse_y);
 	var _bullet = instance_create_layer(_cx, _cy, layer, obj_bullet);
-	_bullet.hsp = lengthdir_x(12, _dir);
-	_bullet.vsp = lengthdir_y(12, _dir);
+	_bullet.hsp = lengthdir_x(12, aim_dir);
+	_bullet.vsp = lengthdir_y(12, aim_dir);
 	_bullet.owner = id;
+	_bullet.owner_player_id = player_id;
+	_bullet.is_ghost = false;
 	ammo -= 1;
 	shoot_cooldown = shoot_cooldown_max;
 
@@ -76,3 +87,6 @@ if (mouse_check_button(mb_left) && !reloading && ammo > 0 && shoot_cooldown <= 0
 		reload_timer = reload_time;
 	}
 }
+
+// One-shot reload must not stick on remote players.
+input_reload = false;

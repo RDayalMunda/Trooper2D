@@ -1,3 +1,7 @@
+if (instance_exists(obj_net) && obj_net.is_client) {
+	exit;
+}
+
 if (!alive || hurt_cooldown > 0) {
 	exit;
 }

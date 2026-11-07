@@ -1,3 +1,7 @@
+if (is_ghost) {
+	exit;
+}
+
 x += hsp;
 y += vsp;
 

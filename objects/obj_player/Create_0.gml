@@ -27,3 +27,12 @@ reload_timer = 0;
 reload_time = 75;
 
 kills = 0;
+
+player_id = 0;
+is_local = true;
+aim_dir = 0;
+input_left = false;
+input_right = false;
+input_jet = false;
+input_shoot = false;
+input_reload = false;

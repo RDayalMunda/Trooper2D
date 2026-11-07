@@ -9,8 +9,15 @@ function input_is_mobile_touch() {
 }
 
 /// @function ui_scale()
+/// @description Layout / hit-target scale for mobile.
 function ui_scale() {
-	return input_is_mobile_touch() ? 1.5 : 1.0;
+	return input_is_mobile_touch() ? 1.55 : 1.0;
+}
+
+/// @function ui_text_scale()
+/// @description Drawn text scale — larger on phones so labels stay readable.
+function ui_text_scale() {
+	return input_is_mobile_touch() ? 1.85 : 1.2;
 }
 
 /// @function ui_back_pressed()
@@ -69,8 +76,9 @@ function draw_ui_panel(_x1, _y1, _x2, _y2, _alpha = 0.45) {
 	draw_set_color(_old_c);
 }
 
-/// @function draw_ui_button(_x1, _y1, _x2, _y2, _label, _selected)
-function draw_ui_button(_x1, _y1, _x2, _y2, _label, _selected = false) {
+/// @function draw_ui_button(_x1, _y1, _x2, _y2, _label, _selected, _text_scale)
+function draw_ui_button(_x1, _y1, _x2, _y2, _label, _selected = false, _text_scale = undefined) {
+	var _ts = (_text_scale == undefined) ? ui_text_scale() : _text_scale;
 	draw_set_color(_selected ? c_dkgray : make_color_rgb(28, 28, 28));
 	draw_rectangle(_x1, _y1, _x2, _y2, false);
 	draw_set_color(_selected ? c_lime : c_white);
@@ -78,10 +86,16 @@ function draw_ui_button(_x1, _y1, _x2, _y2, _label, _selected = false) {
 	draw_set_halign(fa_center);
 	draw_set_valign(fa_middle);
 	draw_set_color(c_white);
-	draw_text((_x1 + _x2) * 0.5, (_y1 + _y2) * 0.5, _label);
+	draw_text_transformed((_x1 + _x2) * 0.5, (_y1 + _y2) * 0.5, _label, _ts, _ts, 0);
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);
+}
+
+/// @function draw_ui_text(_x, _y, _text, _scale_mul)
+function draw_ui_text(_x, _y, _text, _scale_mul = 1) {
+	var _ts = ui_text_scale() * _scale_mul;
+	draw_text_transformed(_x, _y, _text, _ts, _ts, 0);
 }
 
 /// @function draw_touch_stick(_cx, _cy, _knob_x, _knob_y, _radius, _active)

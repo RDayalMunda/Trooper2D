@@ -1,7 +1,7 @@
 if (is_host && host_failed) {
 	if (ui_back_pressed()) {
 		global.net_mode = "offline";
-		global.menu_message = status_detail;
+		global.menu_message = "";
 		net_shutdown();
 		room_goto(room_main_menu);
 	}
@@ -16,9 +16,9 @@ if (socket < 0) {
 var _gw = display_get_gui_width();
 var _gh = display_get_gui_height();
 var _s = ui_scale();
-var _btn_w = round(260 * _s);
-var _btn_h = round(56 * _s);
-var _btn_y1 = _gh - round(100 * _s);
+var _btn_w = round(280 * _s);
+var _btn_h = round(64 * _s);
+var _btn_y1 = _gh - round(110 * _s);
 var _btn_y2 = _btn_y1 + _btn_h;
 results_btn_lobby = [(_gw * 0.5 - _btn_w - 12), _btn_y1, (_gw * 0.5 - 12), _btn_y2];
 results_btn_menu = [(_gw * 0.5 + 12), _btn_y1, (_gw * 0.5 + _btn_w + 12), _btn_y2];
@@ -62,7 +62,7 @@ if (is_host) {
 		if (ui_back_pressed()) {
 			if (match_back_armed) {
 				global.net_mode = "offline";
-				global.menu_message = "Left match";
+				global.menu_message = "";
 				net_host_notify_left();
 				room_goto(room_main_menu);
 				exit;
@@ -114,7 +114,7 @@ if (is_host) {
 		if (ui_back_pressed()) {
 			if (match_back_armed) {
 				global.net_mode = "offline";
-				global.menu_message = "Left match";
+				global.menu_message = "";
 				net_shutdown();
 				room_goto(room_main_menu);
 				exit;

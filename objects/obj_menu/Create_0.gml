@@ -7,6 +7,7 @@ if (!variable_global_exists("join_ip")) {
 if (!variable_global_exists("menu_message")) {
 	global.menu_message = "";
 }
+global.menu_message = "";
 
 player_name_load();
 
@@ -21,19 +22,18 @@ back_quit_armed = false;
 back_quit_timer = 0;
 
 var _s = ui_scale();
-button_w = round(300 * _s);
-button_h = round(58 * _s);
-button_gap = round(18 * _s);
+button_w = round(340 * _s);
+button_h = round(64 * _s);
+button_gap = round(20 * _s);
 menu_x = (room_width - button_w) * 0.5;
-menu_y = room_height * 0.38;
+// Higher stack = more bottom margin (avoids accidental Quit from system swipe-up).
+menu_y = room_height * 0.28;
 
-// Customize layout
 name_box = [0, 0, 0, 0];
 btn_save = [0, 0, 0, 0];
 btn_cancel = [0, 0, 0, 0];
 btn_cancel_connect = [0, 0, 0, 0];
 
-// Leftover net object from a cancelled/failed session.
 if (instance_exists(obj_net)) {
 	net_shutdown();
 }

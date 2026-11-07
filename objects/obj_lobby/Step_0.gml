@@ -11,7 +11,7 @@ if (obj_net.host_failed) {
 	}
 	if (_back) {
 		global.net_mode = "offline";
-		global.menu_message = obj_net.status_detail;
+		global.menu_message = "";
 		net_shutdown();
 		room_goto(room_main_menu);
 	}
@@ -41,6 +41,43 @@ if (_net.is_host) {
 	}
 }
 
+// Player list drag / wheel scroll
+var _mx = mouse_x;
+var _my = mouse_y;
+for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
+	if (device_mouse_check_button(_d, mb_left)) {
+		_mx = device_mouse_x(_d);
+		_my = device_mouse_y(_d);
+		break;
+	}
+}
+
+if (list_drag) {
+	var _held = mouse_check_button(mb_left);
+	for (var _d2 = 0; _d2 < TOUCH_MAX_DEVICES; _d2++) {
+		if (device_mouse_check_button(_d2, mb_left)) {
+			_held = true;
+			_my = device_mouse_y(_d2);
+			break;
+		}
+	}
+	if (_held) {
+		player_scroll = clamp(list_drag_scroll + (list_drag_y - _my), 0, player_scroll_max);
+	} else {
+		list_drag = false;
+	}
+} else if (player_scroll_max > 0) {
+	if (ui_pointer_pressed_in(list_x1, list_y1, list_x2, list_y2, false)) {
+		list_drag = true;
+		list_drag_y = _my;
+		list_drag_scroll = player_scroll;
+	}
+	var _wheel = mouse_wheel_up() - mouse_wheel_down();
+	if (_wheel != 0 && point_in_rectangle(_mx, _my, list_x1, list_y1, list_x2, list_y2)) {
+		player_scroll = clamp(player_scroll - _wheel * player_row_h, 0, player_scroll_max);
+	}
+}
+
 if (keyboard_check_pressed(vk_up) || keyboard_check_pressed(ord("W"))) {
 	selected_slot = (selected_slot - 1 + _count) mod _count;
 }
@@ -52,28 +89,30 @@ var _left = keyboard_check_pressed(vk_left) || keyboard_check_pressed(ord("A"));
 var _right = keyboard_check_pressed(vk_right) || keyboard_check_pressed(ord("D"));
 var _confirm = keyboard_check_pressed(vk_enter) || keyboard_check_pressed(vk_space);
 
-// Touch / click: arrows for Map / Time / Max, buttons for Start / Leave
-if (_net.is_host && array_length(arrow_left) >= 3) {
-	for (var _a = 0; _a < 3; _a++) {
-		var _al = arrow_left[_a];
-		var _ar = arrow_right[_a];
-		if (ui_pointer_pressed_in(_al[0], _al[1], _al[2], _al[3], false)) {
-			selected_slot = _a;
-			_left = true;
-		}
-		if (ui_pointer_pressed_in(_ar[0], _ar[1], _ar[2], _ar[3], false)) {
-			selected_slot = _a;
-			_right = true;
+// Don't treat list-drag presses as lobby button taps
+if (!list_drag) {
+	if (_net.is_host && array_length(arrow_left) >= 3) {
+		for (var _a = 0; _a < 3; _a++) {
+			var _al = arrow_left[_a];
+			var _ar = arrow_right[_a];
+			if (ui_pointer_pressed_in(_al[0], _al[1], _al[2], _al[3], false)) {
+				selected_slot = _a;
+				_left = true;
+			}
+			if (ui_pointer_pressed_in(_ar[0], _ar[1], _ar[2], _ar[3], false)) {
+				selected_slot = _a;
+				_right = true;
+			}
 		}
 	}
-}
 
-if (array_length(btn_rects) > 0) {
-	for (var _b = 0; _b < array_length(btn_rects); _b++) {
-		var _br = btn_rects[_b];
-		if (ui_pointer_pressed_in(_br[0], _br[1], _br[2], _br[3], false)) {
-			selected_slot = _br[4];
-			_confirm = true;
+	if (array_length(btn_rects) > 0) {
+		for (var _b = 0; _b < array_length(btn_rects); _b++) {
+			var _br = btn_rects[_b];
+			if (ui_pointer_pressed_in(_br[0], _br[1], _br[2], _br[3], false)) {
+				selected_slot = _br[4];
+				_confirm = true;
+			}
 		}
 	}
 }
@@ -104,7 +143,7 @@ if (_net.is_host) {
 		}
 		if (selected_slot == 4) {
 			global.net_mode = "offline";
-			global.menu_message = "Left lobby";
+			global.menu_message = "";
 			net_host_notify_left();
 			room_goto(room_main_menu);
 			exit;
@@ -119,14 +158,14 @@ if (_net.is_host) {
 
 	if (ui_back_pressed()) {
 		global.net_mode = "offline";
-		global.menu_message = "Left lobby";
+		global.menu_message = "";
 		net_host_notify_left();
 		room_goto(room_main_menu);
 	}
 } else {
 	if (_confirm && selected_slot == 0) {
 		global.net_mode = "offline";
-		global.menu_message = "Left lobby";
+		global.menu_message = "";
 		net_shutdown();
 		room_goto(room_main_menu);
 		exit;
@@ -134,7 +173,7 @@ if (_net.is_host) {
 
 	if (ui_back_pressed()) {
 		global.net_mode = "offline";
-		global.menu_message = "Left lobby";
+		global.menu_message = "";
 		net_shutdown();
 		room_goto(room_main_menu);
 	}

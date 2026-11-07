@@ -1,5 +1,5 @@
 if (!instance_exists(obj_net)) {
-	global.menu_message = "Network session missing";
+	global.menu_message = "";
 	room_goto(room_main_menu);
 	exit;
 }
@@ -13,16 +13,35 @@ if (obj_net.is_host) {
 }
 
 var _s = ui_scale();
-row_x1 = 0;
-row_y = [];
-row_h = round(52 * _s);
-row_w = round(460 * _s);
-arrow_w = round(56 * _s);
-arrow_pad = 8;
+var _pad = round(16 * _s);
+var _mid = room_width * 0.5;
+col_left_x1 = _pad;
+col_left_x2 = _mid - round(8 * _s);
+col_right_x1 = _mid + round(8 * _s);
+col_right_x2 = room_width - _pad;
 
-// Per-row arrow hitboxes filled in Draw (host settings only)
+row_x1 = col_left_x1;
+row_y = [];
+// Compact defaults — Draw recomputes to fit the panel.
+row_h = round(44 * _s);
+row_w = col_left_x2 - col_left_x1;
+arrow_w = round(48 * _s);
+arrow_pad = round(6 * _s);
+row_gap = round(8 * _s);
+
 arrow_left = [];
 arrow_right = [];
-btn_rects = []; // action buttons (Start / Leave / Back)
-
+btn_rects = [];
 host_failed_btn = [0, 0, 0, 0];
+
+// Player list scrolling (supports up to LOBBY_MAX_PLAYERS_MAX = 8)
+player_scroll = 0;
+player_scroll_max = 0;
+list_x1 = col_right_x1;
+list_y1 = 0;
+list_x2 = col_right_x2;
+list_y2 = 0;
+list_drag = false;
+list_drag_y = 0;
+list_drag_scroll = 0;
+player_row_h = round(40 * _s);

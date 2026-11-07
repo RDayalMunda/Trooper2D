@@ -17,7 +17,7 @@ if (menu_state == "connecting") {
 	if (_cancel) {
 		net_shutdown();
 		global.net_mode = "offline";
-		global.menu_message = "Join cancelled";
+		global.menu_message = "";
 		menu_state = "main";
 		connect_timer = 0;
 		exit;
@@ -37,7 +37,7 @@ if (menu_state == "connecting") {
 	if (connect_timer >= connect_timeout) {
 		net_shutdown();
 		global.net_mode = "offline";
-		global.menu_message = "No host found on " + global.join_ip + " (ports " + string(NET_PORT_MIN) + "-" + string(NET_PORT_MAX) + ")";
+		global.menu_message = "";
 		menu_state = "main";
 		connect_timer = 0;
 	}
@@ -52,7 +52,6 @@ if (menu_state == "customize") {
 	}
 
 	var _save = keyboard_check_pressed(vk_enter);
-	// Do not use vk_backspace while typing — it deletes characters.
 	var _cancel_c = keyboard_check_pressed(vk_escape);
 	if (input_is_mobile_touch() && !keyboard_virtual_status() && keyboard_check_pressed(vk_backspace)) {
 		_cancel_c = true;
@@ -67,7 +66,6 @@ if (menu_state == "customize") {
 		_cancel_c = true;
 	}
 
-	// Tap name box again to re-show virtual keyboard
 	var _nb = name_box;
 	if (array_length(_nb) >= 4 && ui_pointer_pressed_in(_nb[0], _nb[1], _nb[2], _nb[3], false)) {
 		if (input_is_mobile_touch()) {
@@ -89,7 +87,7 @@ if (menu_state == "customize") {
 			keyboard_virtual_hide();
 		}
 		player_name_save(keyboard_string);
-		global.menu_message = "Name set to \"" + global.player_name + "\"";
+		global.menu_message = "";
 		menu_state = "main";
 		keyboard_string = "";
 	}
@@ -123,7 +121,6 @@ if (_confirm) {
 	menu_index = _clicked;
 }
 
-// Android back: arm quit confirmation instead of system "swipe again"
 if (ui_back_pressed()) {
 	if (back_quit_armed) {
 		game_end();
@@ -131,7 +128,6 @@ if (ui_back_pressed()) {
 	}
 	back_quit_armed = true;
 	back_quit_timer = 120;
-	global.menu_message = "Press back again to quit";
 	exit;
 }
 

@@ -90,7 +90,9 @@ if (array_length(_landed) > 0) {
 
 // Out of fight zone: host/offline drain HP fast (clients get auth via snapshot).
 if (!_client_match && alive && instance_number(obj_fight_zone) > 0) {
-	if (!place_meeting(x, y, obj_fight_zone) && hurt_cooldown <= 0) {
+	var _pcx = x + sprite_width * 0.5;
+	var _pcy = y + sprite_height * 0.5;
+	if (!fight_zone_contains_point(_pcx, _pcy) && hurt_cooldown <= 0) {
 		hp -= void_out_damage;
 		hurt_cooldown = void_out_interval;
 		hp_idle_timer = 0;

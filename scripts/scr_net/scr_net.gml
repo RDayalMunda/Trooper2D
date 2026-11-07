@@ -93,6 +93,25 @@ function player_gather_input(_player) {
 	var _cx = _player.x + _player.sprite_width * 0.5;
 	var _cy = _player.y + _player.sprite_height * 0.5;
 	_player.aim_dir = point_direction(_cx, _cy, mouse_x, mouse_y);
+
+	// Twin-stick / touch overlay (also works with mouse on desktop for testing)
+	if (instance_exists(obj_touch_controls)) {
+		var _t = obj_touch_controls;
+		if (_t.left_active) {
+			_player.input_left = _player.input_left || (_t.left_nx < -TOUCH_STICK_DEADZONE);
+			_player.input_right = _player.input_right || (_t.left_nx > TOUCH_STICK_DEADZONE);
+			_player.input_jet = _player.input_jet || (_t.left_ny < -TOUCH_STICK_DEADZONE);
+		}
+		if (_t.right_active) {
+			_player.aim_dir = _t.right_dir;
+			if (_t.shooting) {
+				_player.input_shoot = true;
+			}
+		}
+		if (_t.reload_pressed) {
+			_player.input_reload = true;
+		}
+	}
 }
 
 /// @function player_spawn_at_point(_player_id, _is_local, _display_name)

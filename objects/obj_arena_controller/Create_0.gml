@@ -25,4 +25,8 @@ if (obj_net.phase != "match") {
 	exit;
 }
 
+if (!instance_exists(obj_touch_controls)) {
+	instance_create_layer(0, 0, "Instances", obj_touch_controls);
+}
+
 net_spawn_match_players();

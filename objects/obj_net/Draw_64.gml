@@ -34,6 +34,37 @@ if (phase == "results") {
 	exit;
 }
 
+if (phase == "match") {
+	var _gw = display_get_gui_width();
+	var _timer_text = format_match_time(ceil(match_frames_left / 60));
+	var _map_text = arena_name_from_index(map_index);
+
+	// Center match timer
+	draw_ui_panel(_gw * 0.5 - 54, 8, _gw * 0.5 + 54, 40, 0.42);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(c_white);
+	draw_text(_gw * 0.5, 24, _timer_text);
+
+	// Top-right map name only (timer removed from here)
+	draw_set_halign(fa_right);
+	draw_set_valign(fa_top);
+	var _map_w = 120;
+	var _map_x2 = _gw - 12;
+	var _map_x1 = _map_x2 - _map_w;
+	draw_ui_panel(_map_x1, 10, _map_x2, 42, 0.42);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(c_white);
+	draw_text((_map_x1 + _map_x2) * 0.5, 26, _map_text);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	exit;
+}
+
+// Lobby / other phases: keep simple status
 draw_set_halign(fa_right);
 draw_set_valign(fa_top);
 draw_set_color(c_ltgray);
@@ -44,12 +75,6 @@ if (status_detail != "") {
 
 if (is_host && !host_failed && phase == "lobby") {
 	draw_text(display_get_gui_width() - 16, 56, "Clients: " + string(array_length(client_ips)));
-}
-
-if (phase == "match") {
-	draw_set_halign(fa_center);
-	draw_set_color(c_white);
-	draw_text(display_get_gui_width() * 0.5, 16, format_match_time(ceil(match_frames_left / 60)));
 }
 
 if (is_host && host_failed) {

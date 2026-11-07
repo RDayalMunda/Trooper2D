@@ -1,6 +1,7 @@
 #macro NET_PORT 5394
 #macro NET_PORT_MIN 5394
 #macro NET_PORT_MAX 5403
+#macro NET_DISCOVER_PORT 5393
 #macro NET_MSG_JOIN 1
 #macro NET_MSG_WELCOME 2
 #macro NET_MSG_INPUT 3
@@ -12,9 +13,12 @@
 #macro NET_MSG_MATCH_END 9
 #macro NET_MSG_RETURN_LOBBY 10
 #macro NET_MSG_HOST_LEFT 11
+#macro NET_MSG_DISCOVER 12
+#macro NET_MSG_BEACON 13
 
 #macro NET_REJECT_FULL 1
 #macro NET_REJECT_IN_MATCH 2
+#macro NET_DISCOVER_STALE_FRAMES 180
 
 /// @function net_bind_host_socket()
 function net_bind_host_socket() {
@@ -243,6 +247,120 @@ function net_host_kick_player(_player_id) {
 	return true;
 }
 
+/// @function net_client_send_discover()
+/// @description Ask LAN hosts to announce themselves (unicast beacon reply).
+/// Uses network_send_broadcast — Android denies plain UDP to 255.255.255.255.
+function net_client_send_discover() {
+	with (obj_net) {
+		if (socket < 0 || joined) {
+			return;
+		}
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_DISCOVER);
+		var _size = buffer_tell(send_buffer);
+		for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
+			network_send_broadcast(socket, _port, send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_host_send_beacon(_ip, _port)
+/// @description Reply (or broadcast) lobby info for the join browser.
+function net_host_send_beacon(_ip = undefined, _port = undefined) {
+	with (obj_net) {
+		if (!is_host || host_failed || socket < 0) {
+			return;
+		}
+		if (phase != "lobby") {
+			return;
+		}
+
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_BEACON);
+		buffer_write(send_buffer, buffer_string, lobby_name);
+		buffer_write(send_buffer, buffer_string, global.player_name);
+		buffer_write(send_buffer, buffer_u8, net_lobby_player_count());
+		buffer_write(send_buffer, buffer_u8, max_players);
+		buffer_write(send_buffer, buffer_u16, bound_port);
+		var _size = buffer_tell(send_buffer);
+
+		if (_ip != undefined && _port != undefined) {
+			network_send_udp(socket, _ip, _port, send_buffer, _size);
+		} else {
+			// Subnet broadcast to the discover port (clients bind here to listen).
+			network_send_broadcast(socket, NET_DISCOVER_PORT, send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_client_remember_beacon(_ip, _port, _lobby_name, _host_name, _players, _max_players, _host_port)
+function net_client_remember_beacon(_ip, _port, _lobby_name, _host_name, _players, _max_players, _host_port) {
+	with (obj_net) {
+		var _key_ip = string(_ip);
+		var _key_port = (_host_port > 0) ? _host_port : _port;
+		var _found = -1;
+		for (var _i = 0; _i < array_length(discovered); _i++) {
+			if (discovered[_i].ip == _key_ip && discovered[_i].port == _key_port) {
+				_found = _i;
+				break;
+			}
+		}
+
+		var _entry = {
+			ip: _key_ip,
+			port: _key_port,
+			lobby_name: lobby_name_sanitize(_lobby_name),
+			host_name: player_name_sanitize(_host_name),
+			players: _players,
+			max_players: _max_players,
+			last_seen: current_time
+		};
+
+		if (_found >= 0) {
+			discovered[_found] = _entry;
+		} else {
+			array_push(discovered, _entry);
+		}
+
+		if (browse_index >= array_length(discovered)) {
+			browse_index = max(0, array_length(discovered) - 1);
+		}
+	}
+}
+
+/// @function net_client_prune_discovered()
+function net_client_prune_discovered() {
+	with (obj_net) {
+		var _keep = [];
+		var _selected_ip = "";
+		var _selected_port = -1;
+		if (browse_index >= 0 && browse_index < array_length(discovered)) {
+			_selected_ip = discovered[browse_index].ip;
+			_selected_port = discovered[browse_index].port;
+		}
+
+		for (var _i = 0; _i < array_length(discovered); _i++) {
+			if (current_time - discovered[_i].last_seen <= 3000) {
+				array_push(_keep, discovered[_i]);
+			}
+		}
+		discovered = _keep;
+
+		browse_index = 0;
+		for (var _j = 0; _j < array_length(discovered); _j++) {
+			if (discovered[_j].ip == _selected_ip && discovered[_j].port == _selected_port) {
+				browse_index = _j;
+				break;
+			}
+		}
+		if (array_length(discovered) <= 0) {
+			browse_index = 0;
+		} else {
+			browse_index = clamp(browse_index, 0, array_length(discovered) - 1);
+		}
+	}
+}
+
 /// @function net_client_send_join()
 function net_client_send_join() {
 	if (!variable_global_exists("player_name")) {
@@ -250,6 +368,16 @@ function net_client_send_join() {
 	}
 
 	with (obj_net) {
+		if (socket < 0) {
+			return;
+		}
+		if (!joining && !joined) {
+			return;
+		}
+		if (host_ip == "" || host_port < 0) {
+			return;
+		}
+
 		buffer_seek(send_buffer, buffer_seek_start, 0);
 		buffer_write(send_buffer, buffer_u8, NET_MSG_JOIN);
 		buffer_write(send_buffer, buffer_string, global.player_name);
@@ -258,8 +386,9 @@ function net_client_send_join() {
 		if (joined) {
 			network_send_udp(socket, host_ip, host_port, send_buffer, _size);
 		} else {
-			for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
-				network_send_udp(socket, host_ip, _port, send_buffer, _size);
+			// Host may be on any port in the range until WELCOME locks it.
+			for (var _p = NET_PORT_MIN; _p <= NET_PORT_MAX; _p++) {
+				network_send_udp(socket, host_ip, _p, send_buffer, _size);
 			}
 		}
 	}
@@ -550,6 +679,11 @@ function net_host_send_snapshots() {
 
 /// @function net_host_handle_message(_msg, _buffer, _ip, _port)
 function net_host_handle_message(_msg, _buffer, _ip, _port) {
+	if (_msg == NET_MSG_DISCOVER) {
+		net_host_send_beacon(_ip, _port);
+		return;
+	}
+
 	if (_msg == NET_MSG_JOIN) {
 		var _join_name = PLAYER_NAME_DEFAULT;
 		if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
@@ -640,21 +774,35 @@ function net_client_apply_match_end(_buffer) {
 
 /// @function net_client_handle_message(_msg, _buffer, _ip, _port)
 function net_client_handle_message(_msg, _buffer, _ip, _port) {
+	if (_msg == NET_MSG_BEACON) {
+		if (obj_net.joined) {
+			return;
+		}
+		var _lobby = buffer_read(_buffer, buffer_string);
+		var _host_name = buffer_read(_buffer, buffer_string);
+		var _players = buffer_read(_buffer, buffer_u8);
+		var _max_p = buffer_read(_buffer, buffer_u8);
+		var _host_port = buffer_read(_buffer, buffer_u16);
+		net_client_remember_beacon(_ip, _port, _lobby, _host_name, _players, _max_p, _host_port);
+		return;
+	}
+
 	if (_msg == NET_MSG_WELCOME) {
 		var _pid = buffer_read(_buffer, buffer_u8);
-		var _lobby = PLAYER_NAME_DEFAULT + "'s Game";
+		var _lobby = lobby_name_default();
 		if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
 			_lobby = buffer_read(_buffer, buffer_string);
 		}
 
 		obj_net.local_player_id = _pid;
 		obj_net.joined = true;
+		obj_net.joining = false;
 		obj_net.host_ip = _ip;
 		obj_net.host_port = _port;
-		obj_net.lobby_name = _lobby;
+		obj_net.lobby_name = lobby_name_sanitize(_lobby);
 		obj_net.phase = "lobby";
 		obj_net.status_text = "Joined lobby";
-		obj_net.status_detail = _lobby;
+		obj_net.status_detail = obj_net.lobby_name;
 
 		if (room != room_lobby) {
 			room_goto(room_lobby);
@@ -700,17 +848,30 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 	}
 
 	if (_msg == NET_MSG_REJECT) {
-		var _reason = buffer_read(_buffer, buffer_u8);
-		if (_reason == NET_REJECT_FULL) {
-			global.menu_message = "Lobby is full";
-		} else if (_reason == NET_REJECT_IN_MATCH) {
-			global.menu_message = "Match already in progress";
-		} else {
-			global.menu_message = "Could not join lobby";
+		// Stay in LAN browser so the player can pick another lobby.
+		with (obj_net) {
+			joining = false;
+			host_ip = "";
+			host_port = NET_PORT_MIN;
+			var _next = [];
+			for (var _j = 0; _j < array_length(discovered); _j++) {
+				if (discovered[_j].ip != _ip || discovered[_j].port != _port) {
+					array_push(_next, discovered[_j]);
+				}
+			}
+			discovered = _next;
+			if (array_length(discovered) <= 0) {
+				browse_index = 0;
+			} else {
+				browse_index = clamp(browse_index, 0, array_length(discovered) - 1);
+			}
 		}
-		global.net_mode = "offline";
-		net_shutdown();
-		if (room != room_main_menu) {
+		if (instance_exists(obj_menu)) {
+			obj_menu.menu_state = "browse";
+			obj_menu.connect_timer = 0;
+		} else if (room != room_main_menu) {
+			global.net_mode = "offline";
+			net_shutdown();
 			room_goto(room_main_menu);
 		}
 		return;

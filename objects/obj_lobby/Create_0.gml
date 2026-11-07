@@ -5,9 +5,11 @@ if (!instance_exists(obj_net)) {
 }
 
 selected_slot = 0;
+lobby_ui = "main"; // main | rename
+rename_blink = 0;
 
 if (obj_net.is_host) {
-	menu_rows = ["Map", "Match Time", "Max Players", "Start Match", "Leave Lobby"];
+	menu_rows = ["Lobby Name", "Map", "Match Time", "Max Players", "Start Match", "Leave Lobby"];
 } else {
 	menu_rows = ["Leave Lobby"];
 }
@@ -22,7 +24,6 @@ col_right_x2 = room_width - _pad;
 
 row_x1 = col_left_x1;
 row_y = [];
-// Compact defaults — Draw recomputes to fit the panel.
 row_h = round(44 * _s);
 row_w = col_left_x2 - col_left_x1;
 arrow_w = round(48 * _s);
@@ -33,8 +34,10 @@ arrow_left = [];
 arrow_right = [];
 btn_rects = [];
 host_failed_btn = [0, 0, 0, 0];
+name_box = [0, 0, 0, 0];
+btn_save = [0, 0, 0, 0];
+btn_cancel = [0, 0, 0, 0];
 
-// Player list scrolling (supports up to LOBBY_MAX_PLAYERS_MAX = 8)
 player_scroll = 0;
 player_scroll_max = 0;
 list_x1 = col_right_x1;

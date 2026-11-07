@@ -19,6 +19,7 @@
   },
   "name":"Trooper2D",
   "resources":[
+    {"id":{"name":"ext_android_lan","path":"extensions/ext_android_lan/ext_android_lan.yy",},},
     {"id":{"name":"obj_arena_controller","path":"objects/obj_arena_controller/obj_arena_controller.yy",},},
     {"id":{"name":"obj_arena_green_spawn_point","path":"objects/obj_arena_green_spawn_point/obj_arena_green_spawn_point.yy",},},
     {"id":{"name":"obj_bullet","path":"objects/obj_bullet/obj_bullet.yy",},},
@@ -31,7 +32,6 @@
     {"id":{"name":"obj_player","path":"objects/obj_player/obj_player.yy",},},
     {"id":{"name":"obj_solid","path":"objects/obj_solid/obj_solid.yy",},},
     {"id":{"name":"obj_touch_controls","path":"objects/obj_touch_controls/obj_touch_controls.yy",},},
-
     {"id":{"name":"room_arena_cave","path":"rooms/room_arena_cave/room_arena_cave.yy",},},
     {"id":{"name":"room_arena_green","path":"rooms/room_arena_green/room_arena_green.yy",},},
     {"id":{"name":"room_lobby","path":"rooms/room_lobby/room_lobby.yy",},},
@@ -41,7 +41,6 @@
     {"id":{"name":"scr_net","path":"scripts/scr_net/scr_net.yy",},},
     {"id":{"name":"scr_spawn","path":"scripts/scr_spawn/scr_spawn.yy",},},
     {"id":{"name":"scr_touch","path":"scripts/scr_touch/scr_touch.yy",},},
-
     {"id":{"name":"spr_bullet","path":"sprites/spr_bullet/spr_bullet.yy",},},
     {"id":{"name":"spr_dummy","path":"sprites/spr_dummy/spr_dummy.yy",},},
     {"id":{"name":"spr_hurt_zone","path":"sprites/spr_hurt_zone/spr_hurt_zone.yy",},},

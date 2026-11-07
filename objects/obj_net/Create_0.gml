@@ -6,13 +6,19 @@ is_client = (global.net_mode == "client");
 socket = -1;
 local_player_id = 0;
 joined = false;
+joining = false; // true only after user picks a lobby and taps Join
 join_cooldown = 0;
 snapshot_cooldown = 0;
 lobby_sync_cooldown = 0;
+beacon_cooldown = 0;
+discover_cooldown = 0;
 bound_port = -1;
 host_failed = false;
 
-host_ip = global.join_ip;
+if (!variable_global_exists("join_ip")) {
+	join_ip_load();
+}
+host_ip = "";
 host_port = NET_PORT_MIN;
 
 client_ips = [];
@@ -21,11 +27,15 @@ client_player_ids = [];
 client_names = [];
 next_player_id = 2;
 
+// LAN browser (client, pre-join)
+discovered = [];
+browse_index = 0;
+
 phase = "lobby"; // lobby | match | results
 if (!variable_global_exists("player_name")) {
 	player_name_load();
 }
-lobby_name = global.player_name + "'s Game";
+lobby_name = lobby_name_default();
 map_index = 0;
 match_time_sec = MATCH_TIME_DEFAULT;
 max_players = LOBBY_MAX_PLAYERS_DEFAULT;
@@ -62,15 +72,24 @@ if (is_host) {
 			name: global.player_name,
 			is_host: true
 		});
+		beacon_cooldown = 0;
 	}
 } else if (is_client) {
-	socket = network_create_socket(network_socket_udp);
+	// Must bind with network_create_socket_ext to RECEIVE LAN broadcasts (GM docs).
+	discover_port = NET_DISCOVER_PORT;
+	socket = network_create_socket_ext(network_socket_udp, NET_DISCOVER_PORT);
+	if (socket < 0) {
+		// Fallback: unbound socket can still get unicast DISCOVER replies.
+		socket = network_create_socket(network_socket_udp);
+		discover_port = -1;
+	}
 	if (socket < 0) {
 		status_text = "Client socket failed";
 		status_detail = "Could not create UDP socket";
 	} else {
-		status_text = "Searching for host";
-		status_detail = string(host_ip) + " ports " + string(NET_PORT_MIN) + "-" + string(NET_PORT_MAX);
+		status_text = "Searching LAN";
+		status_detail = "Looking for lobbies...";
+		discover_cooldown = 0;
 		join_cooldown = 0;
 	}
 }

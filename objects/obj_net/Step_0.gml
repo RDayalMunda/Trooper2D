@@ -38,6 +38,13 @@ if (is_host) {
 			lobby_sync_cooldown = 30;
 			net_host_send_lobby_state();
 		}
+
+		// Periodic LAN advertisement (plus DISCOVER replies).
+		beacon_cooldown -= 1;
+		if (beacon_cooldown <= 0) {
+			beacon_cooldown = 45;
+			net_host_send_beacon();
+		}
 	} else if (phase == "match") {
 		match_frames_left -= 1;
 		status_text = "Match " + format_match_time(ceil(match_frames_left / 60));
@@ -97,10 +104,20 @@ if (is_host) {
 	}
 } else if (is_client) {
 	if (!joined) {
-		join_cooldown -= 1;
-		if (join_cooldown <= 0) {
-			join_cooldown = 20;
-			net_client_send_join();
+		// Browse mode: poll for lobbies. Only JOIN after user confirms.
+		if (!joining) {
+			discover_cooldown -= 1;
+			if (discover_cooldown <= 0) {
+				discover_cooldown = 20;
+				net_client_send_discover();
+			}
+			net_client_prune_discovered();
+		} else {
+			join_cooldown -= 1;
+			if (join_cooldown <= 0) {
+				join_cooldown = 20;
+				net_client_send_join();
+			}
 		}
 	} else if (phase == "match") {
 		net_client_send_input();

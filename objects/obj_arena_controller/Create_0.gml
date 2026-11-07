@@ -2,7 +2,7 @@ if (!variable_global_exists("net_mode")) {
 	global.net_mode = "host";
 }
 if (!variable_global_exists("join_ip")) {
-	global.join_ip = "127.0.0.1";
+	join_ip_load();
 }
 
 // Match play only. Lobby creates obj_net before arenas.

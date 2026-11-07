@@ -3,3 +3,7 @@ vsp = 0;
 owner = noone;
 owner_player_id = 0;
 is_ghost = false;
+is_predicted = false;
+net_id = 0;
+net_seen = true;
+life = -1;

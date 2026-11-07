@@ -82,6 +82,15 @@ if (is_host) {
 		status_text = "Match over";
 		status_detail = "Return to lobby or menu";
 
+		if (match_end_resend_left > 0) {
+			match_end_resend_timer -= 1;
+			if (match_end_resend_timer <= 0) {
+				match_end_resend_timer = NET_MATCH_END_INTERVAL;
+				net_host_send_match_end();
+				match_end_resend_left -= 1;
+			}
+		}
+
 		var _to_lobby = keyboard_check_pressed(vk_enter);
 		var _to_menu = ui_back_pressed();
 		var _rl = results_btn_lobby;

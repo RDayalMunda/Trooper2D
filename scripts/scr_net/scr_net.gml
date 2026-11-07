@@ -19,6 +19,43 @@
 #macro NET_REJECT_FULL 1
 #macro NET_REJECT_IN_MATCH 2
 #macro NET_DISCOVER_STALE_FRAMES 180
+#macro NET_NAME_BYTES 16
+#macro NET_BULLET_MAX 48
+#macro NET_SNAP_HARD 96
+#macro NET_MATCH_END_RESENDS 8
+#macro NET_MATCH_END_INTERVAL 12
+
+/// @function net_write_name(_buffer, _name)
+function net_write_name(_buffer, _name) {
+	_name = player_name_sanitize(_name);
+	var _len = string_length(_name);
+	for (var _i = 1; _i <= NET_NAME_BYTES; _i++) {
+		var _c = (_i <= _len) ? ord(string_char_at(_name, _i)) : 0;
+		buffer_write(_buffer, buffer_u8, _c);
+	}
+}
+
+/// @function net_read_name(_buffer)
+function net_read_name(_buffer) {
+	var _name = "";
+	for (var _i = 0; _i < NET_NAME_BYTES; _i++) {
+		var _c = buffer_read(_buffer, buffer_u8);
+		if (_c != 0) {
+			_name += chr(_c);
+		}
+	}
+	return player_name_sanitize(_name);
+}
+
+/// @function net_find_bullet(_net_id)
+function net_find_bullet(_net_id) {
+	with (obj_bullet) {
+		if (!is_predicted && net_id == _net_id) {
+			return id;
+		}
+	}
+	return noone;
+}
 
 /// @function net_bind_host_socket()
 function net_bind_host_socket() {
@@ -488,9 +525,9 @@ function net_host_send_match_end() {
 		buffer_write(send_buffer, buffer_u8, NET_MSG_MATCH_END);
 		buffer_write(send_buffer, buffer_u8, array_length(results));
 		for (var _i = 0; _i < array_length(results); _i++) {
-			buffer_write(send_buffer, buffer_string, results[_i].name);
-			buffer_write(send_buffer, buffer_u16, results[_i].kills);
-			buffer_write(send_buffer, buffer_u16, results[_i].deaths);
+			net_write_name(send_buffer, results[_i].name);
+			buffer_write(send_buffer, buffer_u16, clamp(round(results[_i].kills), 0, 999));
+			buffer_write(send_buffer, buffer_u16, clamp(round(results[_i].deaths), 0, 999));
 		}
 		var _size = buffer_tell(send_buffer);
 		for (var _c = 0; _c < array_length(client_ips); _c++) {
@@ -505,8 +542,8 @@ function net_collect_results() {
 	with (obj_player) {
 		array_push(_results, {
 			name: display_name,
-			kills: kills,
-			deaths: deaths,
+			kills: clamp(round(kills), 0, 999),
+			deaths: clamp(round(deaths), 0, 999),
 			player_id: player_id
 		});
 	}
@@ -527,6 +564,9 @@ function net_begin_match() {
 		phase = "match";
 		match_frames_left = match_time_sec * 60;
 		results = [];
+		next_bullet_id = 1;
+		match_end_resend_left = 0;
+		match_end_resend_timer = 0;
 		with (obj_player) {
 			instance_destroy();
 		}
@@ -546,6 +586,8 @@ function net_end_match() {
 		}
 		results = net_collect_results();
 		phase = "results";
+		match_end_resend_left = NET_MATCH_END_RESENDS;
+		match_end_resend_timer = NET_MATCH_END_INTERVAL;
 		net_host_send_match_end();
 		with (obj_player) {
 			instance_destroy();
@@ -658,9 +700,12 @@ function net_host_send_snapshots() {
 		var _bullet_count = 0;
 
 		with (obj_bullet) {
-			if (!is_ghost) {
+			if (!is_ghost && net_id > 0 && _bullet_count < NET_BULLET_MAX) {
+				buffer_write(other.send_buffer, buffer_u16, net_id);
 				buffer_write(other.send_buffer, buffer_f32, x);
 				buffer_write(other.send_buffer, buffer_f32, y);
+				buffer_write(other.send_buffer, buffer_f32, hsp);
+				buffer_write(other.send_buffer, buffer_f32, vsp);
 				_bullet_count += 1;
 			}
 		}
@@ -754,15 +799,34 @@ function net_client_apply_lobby_state(_buffer) {
 function net_client_apply_match_end(_buffer) {
 	with (obj_net) {
 		var _count = buffer_read(_buffer, buffer_u8);
-		results = [];
+		if (_count > 8) {
+			return;
+		}
+
+		var _bytes_needed = _count * (NET_NAME_BYTES + 4);
+		if (buffer_tell(_buffer) + _bytes_needed > buffer_get_size(_buffer)) {
+			return;
+		}
+
+		var _parsed = [];
 		for (var _i = 0; _i < _count; _i++) {
-			array_push(results, {
-				name: buffer_read(_buffer, buffer_string),
-				kills: buffer_read(_buffer, buffer_u16),
-				deaths: buffer_read(_buffer, buffer_u16)
+			var _name = net_read_name(_buffer);
+			var _kills = buffer_read(_buffer, buffer_u16);
+			var _deaths = buffer_read(_buffer, buffer_u16);
+			if (_kills > 999 || _deaths > 999) {
+				return;
+			}
+			array_push(_parsed, {
+				name: _name,
+				kills: _kills,
+				deaths: _deaths
 			});
 		}
+
+		results = _parsed;
 		phase = "results";
+		status_text = "Match over";
+		status_detail = "Waiting for host...";
 		with (obj_player) {
 			instance_destroy();
 		}
@@ -928,23 +992,57 @@ function net_client_apply_snapshot(_buffer) {
 		array_push(_seen, _pid);
 
 		var _player = net_find_player(_pid);
+		var _is_local = (_pid == obj_net.local_player_id);
+		var _spawned = false;
 		if (_player == noone) {
 			_player = instance_create_layer(_x, _y, "Instances", obj_player);
-			player_setup_net(_player, _pid, _pid == obj_net.local_player_id, _name);
+			player_setup_net(_player, _pid, _is_local, _name);
+			_spawned = true;
 		}
 
-		_player.x = _x;
-		_player.y = _y;
-		_player.aim_dir = _aim;
+		_player.is_local = _is_local;
+		_player.display_name = player_name_sanitize(_name);
 		_player.hp = _hp;
-		_player.alive = _alive;
 		_player.ammo = _ammo;
 		_player.reloading = _reloading;
 		_player.fuel = _fuel;
-		_player.kills = _kills;
-		_player.deaths = _deaths;
-		_player.display_name = player_name_sanitize(_name);
-		_player.is_local = (_pid == obj_net.local_player_id);
+		_player.kills = clamp(_kills, 0, 999);
+		_player.deaths = clamp(_deaths, 0, 999);
+
+		var _was_alive = _player.alive;
+		_player.alive = _alive;
+
+		if (_is_local) {
+			// Keep local aim; reconcile body to auth.
+			var _dist = point_distance(_player.x, _player.y, _x, _y);
+			if (_spawned || !_alive || !_was_alive || _dist >= NET_SNAP_HARD) {
+				_player.x = _x;
+				_player.y = _y;
+			} else if (_dist > 8) {
+				_player.x = lerp(_player.x, _x, 0.35);
+				_player.y = lerp(_player.y, _y, 0.35);
+			}
+		} else {
+			_player.net_from_x = _player.x;
+			_player.net_from_y = _player.y;
+			_player.net_to_x = _x;
+			_player.net_to_y = _y;
+			_player.net_aim_from = _player.aim_dir;
+			_player.net_aim_to = _aim;
+			_player.net_interp_dur = 3;
+			_player.net_interp_t = 0;
+
+			var _rdist = point_distance(_player.x, _player.y, _x, _y);
+			if (_spawned || _rdist >= NET_SNAP_HARD) {
+				_player.x = _x;
+				_player.y = _y;
+				_player.aim_dir = _aim;
+				_player.net_from_x = _x;
+				_player.net_from_y = _y;
+				_player.net_aim_from = _aim;
+				_player.net_interp_t = 1;
+			}
+		}
 	}
 
 	with (obj_player) {
@@ -961,16 +1059,38 @@ function net_client_apply_snapshot(_buffer) {
 	}
 
 	with (obj_bullet) {
-		instance_destroy();
+		if (is_ghost && !is_predicted) {
+			net_seen = false;
+		}
 	}
 
 	var _bullet_count = buffer_read(_buffer, buffer_u8);
 	for (var _b = 0; _b < _bullet_count; _b++) {
+		var _bid = buffer_read(_buffer, buffer_u16);
 		var _bx = buffer_read(_buffer, buffer_f32);
 		var _by = buffer_read(_buffer, buffer_f32);
-		var _bullet = instance_create_layer(_bx, _by, "Instances", obj_bullet);
-		_bullet.is_ghost = true;
-		_bullet.hsp = 0;
-		_bullet.vsp = 0;
+		var _bh = buffer_read(_buffer, buffer_f32);
+		var _bv = buffer_read(_buffer, buffer_f32);
+
+		var _bullet = net_find_bullet(_bid);
+		if (_bullet == noone) {
+			_bullet = instance_create_layer(_bx, _by, "Instances", obj_bullet);
+			_bullet.net_id = _bid;
+			_bullet.is_ghost = true;
+			_bullet.is_predicted = false;
+			_bullet.life = -1;
+		} else {
+			_bullet.x = lerp(_bullet.x, _bx, 0.65);
+			_bullet.y = lerp(_bullet.y, _by, 0.65);
+		}
+		_bullet.hsp = _bh;
+		_bullet.vsp = _bv;
+		_bullet.net_seen = true;
+	}
+
+	with (obj_bullet) {
+		if (is_ghost && !is_predicted && !net_seen) {
+			instance_destroy();
+		}
 	}
 }

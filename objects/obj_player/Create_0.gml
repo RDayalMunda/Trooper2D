@@ -47,3 +47,13 @@ input_right = false;
 input_jet = false;
 input_shoot = false;
 input_reload = false;
+
+// Client net smoothing
+net_from_x = x;
+net_from_y = y;
+net_to_x = x;
+net_to_y = y;
+net_aim_from = 0;
+net_aim_to = 0;
+net_interp_t = 1;
+net_interp_dur = 3;

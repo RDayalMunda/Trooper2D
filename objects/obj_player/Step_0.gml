@@ -1,5 +1,25 @@
-// Clients do not simulate — host is authoritative.
-if (instance_exists(obj_net) && (obj_net.is_client || obj_net.phase != "match")) {
+var _net = instance_exists(obj_net);
+var _client_match = _net && obj_net.is_client && obj_net.phase == "match";
+var _host_match = _net && obj_net.is_host && obj_net.phase == "match";
+
+// Lobby / results: no combat sim.
+if (_net && obj_net.phase != "match") {
+	exit;
+}
+
+// Remote players on clients: interpolate toward latest auth snapshot.
+if (_client_match && !is_local) {
+	if (net_interp_t < 1) {
+		net_interp_t = min(1, net_interp_t + (1 / max(1, net_interp_dur)));
+		var _t = net_interp_t;
+		x = lerp(net_from_x, net_to_x, _t);
+		y = lerp(net_from_y, net_to_y, _t);
+		aim_dir = net_aim_from + angle_difference(net_aim_to, net_aim_from) * _t;
+	} else {
+		x = net_to_x;
+		y = net_to_y;
+		aim_dir = net_aim_to;
+	}
 	exit;
 }
 
@@ -21,19 +41,22 @@ if (!alive) {
 	input_jet = false;
 	input_shoot = false;
 	input_reload = false;
-	respawn_timer -= 1;
-	if (respawn_timer <= 0) {
-		spawn_point_place_player(id);
-		hp = hp_max;
-		fuel = fuel_max;
-		fuel_idle_timer = 0;
-		hp_idle_timer = 0;
-		ammo = ammo_max;
-		reloading = false;
-		reload_timer = 0;
-		shoot_cooldown = 0;
-		hurt_cooldown = hurt_cooldown_max;
-		alive = true;
+	// Only host / offline own respawn timing; clients wait for auth.
+	if (!_client_match) {
+		respawn_timer -= 1;
+		if (respawn_timer <= 0) {
+			spawn_point_place_player(id);
+			hp = hp_max;
+			fuel = fuel_max;
+			fuel_idle_timer = 0;
+			hp_idle_timer = 0;
+			ammo = ammo_max;
+			reloading = false;
+			reload_timer = 0;
+			shoot_cooldown = 0;
+			hurt_cooldown = hurt_cooldown_max;
+			alive = true;
+		}
 	}
 	exit;
 }
@@ -91,7 +114,29 @@ if (input_shoot && !reloading && ammo > 0 && shoot_cooldown <= 0) {
 	_bullet.vsp = lengthdir_y(12, aim_dir);
 	_bullet.owner = id;
 	_bullet.owner_player_id = player_id;
-	_bullet.is_ghost = false;
+
+	if (_client_match) {
+		// Local muzzle flash only — host owns damage bullets.
+		_bullet.is_ghost = true;
+		_bullet.is_predicted = true;
+		_bullet.net_id = 0;
+		_bullet.net_seen = true;
+		_bullet.life = 14;
+	} else {
+		_bullet.is_ghost = false;
+		_bullet.is_predicted = false;
+		_bullet.life = -1;
+		if (_host_match) {
+			_bullet.net_id = obj_net.next_bullet_id;
+			obj_net.next_bullet_id += 1;
+			if (obj_net.next_bullet_id > 65000) {
+				obj_net.next_bullet_id = 1;
+			}
+		} else {
+			_bullet.net_id = 0;
+		}
+	}
+
 	ammo -= 1;
 	shoot_cooldown = shoot_cooldown_max;
 

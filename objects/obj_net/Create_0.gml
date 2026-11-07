@@ -42,6 +42,9 @@ max_players = LOBBY_MAX_PLAYERS_DEFAULT;
 match_frames_left = 0;
 lobby_roster = [];
 results = [];
+next_bullet_id = 1;
+match_end_resend_left = 0;
+match_end_resend_timer = 0;
 
 send_buffer = buffer_create(2048, buffer_grow, 1);
 status_text = "";

@@ -1,8 +1,29 @@
 #macro NET_PORT 5394
+#macro NET_PORT_MIN 5394
+#macro NET_PORT_MAX 5403
 #macro NET_MSG_JOIN 1
 #macro NET_MSG_WELCOME 2
 #macro NET_MSG_INPUT 3
 #macro NET_MSG_SNAPSHOT 4
+
+/// @function net_bind_host_socket()
+/// @description Tries ports NET_PORT_MIN..NET_PORT_MAX. Returns [socket, port] or [-1, -1].
+function net_bind_host_socket() {
+	for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
+		var _socket = network_create_socket_ext(network_socket_udp, _port);
+		if (_socket >= 0) {
+			return [_socket, _port];
+		}
+	}
+	return [-1, -1];
+}
+
+/// @function net_shutdown()
+function net_shutdown() {
+	if (instance_exists(obj_net)) {
+		instance_destroy(obj_net);
+	}
+}
 
 /// @function net_find_player(_player_id)
 function net_find_player(_player_id) {
@@ -77,7 +98,8 @@ function net_host_add_client(_ip, _port) {
 		player_spawn_at_point(_pid, false);
 	}
 
-	obj_net.status_text = "Hosting - player " + string(_pid) + " joined";
+	obj_net.status_text = "Hosting on port " + string(obj_net.bound_port);
+	obj_net.status_detail = "Player " + string(_pid) + " joined (" + string(array_length(obj_net.client_ips)) + " client(s))";
 	return _pid;
 }
 
@@ -86,7 +108,16 @@ function net_client_send_join() {
 	with (obj_net) {
 		buffer_seek(send_buffer, buffer_seek_start, 0);
 		buffer_write(send_buffer, buffer_u8, NET_MSG_JOIN);
-		network_send_udp(socket, host_ip, host_port, send_buffer, buffer_tell(send_buffer));
+		var _size = buffer_tell(send_buffer);
+
+		if (joined) {
+			network_send_udp(socket, host_ip, host_port, send_buffer, _size);
+		} else {
+			// Probe the host port range until a WELCOME locks the real port.
+			for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
+				network_send_udp(socket, host_ip, _port, send_buffer, _size);
+			}
+		}
 	}
 }
 
@@ -217,15 +248,19 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 	}
 }
 
-/// @function net_client_handle_message(_msg, _buffer)
-function net_client_handle_message(_msg, _buffer) {
+/// @function net_client_handle_message(_msg, _buffer, _ip, _port)
+function net_client_handle_message(_msg, _buffer, _ip, _port) {
 	if (_msg == NET_MSG_WELCOME) {
 		var _pid = buffer_read(_buffer, buffer_u8);
 		obj_net.local_player_id = _pid;
 		obj_net.joined = true;
-		obj_net.status_text = "Joined as player " + string(_pid);
+		obj_net.host_ip = _ip;
+		obj_net.host_port = _port;
+		obj_net.status_text = "Joined as player " + string(_pid) + " @ " + string(_ip) + ":" + string(_port);
 
-		if (net_find_player(_pid) == noone) {
+		if (room != room_arena_green) {
+			room_goto(room_arena_green);
+		} else if (net_find_player(_pid) == noone) {
 			player_spawn_at_point(_pid, true);
 		} else {
 			player_setup_net(net_find_player(_pid), _pid, true);
@@ -234,6 +269,9 @@ function net_client_handle_message(_msg, _buffer) {
 	}
 
 	if (_msg == NET_MSG_SNAPSHOT) {
+		if (room != room_arena_green) {
+			return;
+		}
 		net_client_apply_snapshot(_buffer);
 	}
 }

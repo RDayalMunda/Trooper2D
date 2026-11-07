@@ -27,5 +27,5 @@ var _msg = buffer_read(_buffer, buffer_u8);
 if (is_host) {
 	net_host_handle_message(_msg, _buffer, _ip, _port);
 } else if (is_client) {
-	net_client_handle_message(_msg, _buffer);
+	net_client_handle_message(_msg, _buffer, _ip, _port);
 }

@@ -1,3 +1,30 @@
+if (menu_state == "connecting") {
+	connect_timer += 1;
+
+	if (keyboard_check_pressed(vk_escape)) {
+		net_shutdown();
+		global.net_mode = "offline";
+		global.menu_message = "Join cancelled";
+		menu_state = "main";
+		connect_timer = 0;
+		exit;
+	}
+
+	if (instance_exists(obj_net) && obj_net.joined) {
+		// room_goto is triggered by the WELCOME handler.
+		exit;
+	}
+
+	if (connect_timer >= connect_timeout) {
+		net_shutdown();
+		global.net_mode = "offline";
+		global.menu_message = "No host found on " + global.join_ip + " (ports " + string(NET_PORT_MIN) + "-" + string(NET_PORT_MAX) + ")";
+		menu_state = "main";
+		connect_timer = 0;
+	}
+	exit;
+}
+
 if (keyboard_check_pressed(vk_up) || keyboard_check_pressed(ord("W"))) {
 	menu_index = (menu_index - 1 + menu_count) mod menu_count;
 }
@@ -31,6 +58,8 @@ if (_clicked < 0) {
 	exit;
 }
 
+global.menu_message = "";
+
 switch (_clicked) {
 	case 0:
 		global.net_mode = "host";
@@ -40,7 +69,10 @@ switch (_clicked) {
 	case 1:
 		global.net_mode = "client";
 		global.join_ip = "127.0.0.1";
-		room_goto(room_arena_green);
+		menu_state = "connecting";
+		connect_timer = 0;
+		net_shutdown();
+		instance_create_layer(0, 0, "Instances", obj_net);
 		break;
 	case 2:
 		game_end();

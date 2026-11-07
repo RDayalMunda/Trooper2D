@@ -7,8 +7,7 @@ if (!alive) {
 	vsp = 0;
 	respawn_timer -= 1;
 	if (respawn_timer <= 0) {
-		x = spawn_x;
-		y = spawn_y;
+		spawn_point_place_player(id);
 		hp = hp_max;
 		fuel = fuel_max;
 		ammo = ammo_max;

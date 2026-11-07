@@ -1,5 +1,5 @@
 // Clients do not simulate — host is authoritative.
-if (instance_exists(obj_net) && obj_net.is_client) {
+if (instance_exists(obj_net) && (obj_net.is_client || obj_net.phase != "match")) {
 	exit;
 }
 

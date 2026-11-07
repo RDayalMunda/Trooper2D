@@ -5,9 +5,18 @@
 #macro NET_MSG_WELCOME 2
 #macro NET_MSG_INPUT 3
 #macro NET_MSG_SNAPSHOT 4
+#macro NET_MSG_LOBBY_STATE 5
+#macro NET_MSG_START 6
+#macro NET_MSG_KICK 7
+#macro NET_MSG_REJECT 8
+#macro NET_MSG_MATCH_END 9
+#macro NET_MSG_RETURN_LOBBY 10
+#macro NET_MSG_HOST_LEFT 11
+
+#macro NET_REJECT_FULL 1
+#macro NET_REJECT_IN_MATCH 2
 
 /// @function net_bind_host_socket()
-/// @description Tries ports NET_PORT_MIN..NET_PORT_MAX. Returns [socket, port] or [-1, -1].
 function net_bind_host_socket() {
 	for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
 		var _socket = network_create_socket_ext(network_socket_udp, _port);
@@ -23,6 +32,24 @@ function net_shutdown() {
 	if (instance_exists(obj_net)) {
 		instance_destroy(obj_net);
 	}
+}
+
+/// @function net_host_notify_left()
+/// @description Tell all clients the host closed the lobby, then shut down.
+function net_host_notify_left() {
+	if (!instance_exists(obj_net) || !obj_net.is_host) {
+		return;
+	}
+
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_HOST_LEFT);
+		var _size = buffer_tell(send_buffer);
+		for (var _i = 0; _i < array_length(client_ips); _i++) {
+			network_send_udp(socket, client_ips[_i], client_ports[_i], send_buffer, _size);
+		}
+	}
+	net_shutdown();
 }
 
 /// @function net_find_player(_player_id)
@@ -67,14 +94,22 @@ function player_gather_input(_player) {
 	_player.aim_dir = point_direction(_cx, _cy, mouse_x, mouse_y);
 }
 
-/// @function player_spawn_at_point(_player_id, _is_local)
-function player_spawn_at_point(_player_id, _is_local) {
+/// @function player_spawn_at_point(_player_id, _is_local, _display_name)
+function player_spawn_at_point(_player_id, _is_local, _display_name = undefined) {
 	var _spawn = spawn_point_get_random();
 	var _x = (_spawn != noone) ? _spawn.x : room_width * 0.5;
 	var _y = (_spawn != noone) ? _spawn.y : room_height * 0.5;
 	var _player = instance_create_layer(_x, _y, "Instances", obj_player);
-	player_setup_net(_player, _player_id, _is_local);
+	player_setup_net(_player, _player_id, _is_local, _display_name);
 	return _player;
+}
+
+/// @function net_lobby_player_count()
+function net_lobby_player_count() {
+	if (!instance_exists(obj_net)) {
+		return 0;
+	}
+	return 1 + array_length(obj_net.client_ips);
 }
 
 /// @function net_host_find_client(_ip, _port)
@@ -89,18 +124,45 @@ function net_host_find_client(_ip, _port) {
 	return -1;
 }
 
+/// @function net_host_find_client_by_id(_player_id)
+function net_host_find_client_by_id(_player_id) {
+	with (obj_net) {
+		for (var _i = 0; _i < array_length(client_player_ids); _i++) {
+			if (client_player_ids[_i] == _player_id) {
+				return _i;
+			}
+		}
+	}
+	return -1;
+}
+
+/// @function net_host_send_reject(_ip, _port, _reason)
+function net_host_send_reject(_ip, _port, _reason) {
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_REJECT);
+		buffer_write(send_buffer, buffer_u8, _reason);
+		network_send_udp(socket, _ip, _port, send_buffer, buffer_tell(send_buffer));
+	}
+}
+
 /// @function net_host_add_client(_ip, _port, _display_name)
 function net_host_add_client(_ip, _port, _display_name) {
 	var _name = player_name_sanitize(_display_name);
 	var _existing = net_host_find_client(_ip, _port);
 	if (_existing >= 0) {
-		var _existing_id = obj_net.client_player_ids[_existing];
 		obj_net.client_names[_existing] = _name;
-		var _existing_player = net_find_player(_existing_id);
-		if (_existing_player != noone) {
-			_existing_player.display_name = _name;
-		}
-		return _existing_id;
+		return obj_net.client_player_ids[_existing];
+	}
+
+	if (obj_net.phase != "lobby") {
+		net_host_send_reject(_ip, _port, NET_REJECT_IN_MATCH);
+		return -1;
+	}
+
+	if (net_lobby_player_count() >= obj_net.max_players) {
+		net_host_send_reject(_ip, _port, NET_REJECT_FULL);
+		return -1;
 	}
 
 	var _pid = obj_net.next_player_id;
@@ -110,15 +172,45 @@ function net_host_add_client(_ip, _port, _display_name) {
 	array_push(obj_net.client_player_ids, _pid);
 	array_push(obj_net.client_names, _name);
 
-	var _player = net_find_player(_pid);
-	if (_player == noone) {
-		_player = player_spawn_at_point(_pid, false);
-	}
-	player_setup_net(_player, _pid, false, _name);
-
 	obj_net.status_text = "Hosting on port " + string(obj_net.bound_port);
-	obj_net.status_detail = _name + " joined (" + string(array_length(obj_net.client_ips)) + " client(s))";
+	obj_net.status_detail = _name + " joined lobby";
 	return _pid;
+}
+
+/// @function net_host_remove_client_index(_index)
+function net_host_remove_client_index(_index) {
+	with (obj_net) {
+		if (_index < 0 || _index >= array_length(client_ips)) {
+			return;
+		}
+		var _pid = client_player_ids[_index];
+		var _player = net_find_player(_pid);
+		if (_player != noone) {
+			instance_destroy(_player);
+		}
+		array_delete(client_ips, _index, 1);
+		array_delete(client_ports, _index, 1);
+		array_delete(client_player_ids, _index, 1);
+		array_delete(client_names, _index, 1);
+	}
+}
+
+/// @function net_host_kick_player(_player_id)
+function net_host_kick_player(_player_id) {
+	var _index = net_host_find_client_by_id(_player_id);
+	if (_index < 0) {
+		return false;
+	}
+
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_KICK);
+		network_send_udp(socket, client_ips[_index], client_ports[_index], send_buffer, buffer_tell(send_buffer));
+		status_detail = client_names[_index] + " was kicked";
+	}
+	net_host_remove_client_index(_index);
+	net_host_send_lobby_state();
+	return true;
 }
 
 /// @function net_client_send_join()
@@ -136,7 +228,6 @@ function net_client_send_join() {
 		if (joined) {
 			network_send_udp(socket, host_ip, host_port, send_buffer, _size);
 		} else {
-			// Probe the host port range until a WELCOME locks the real port.
 			for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
 				network_send_udp(socket, host_ip, _port, send_buffer, _size);
 			}
@@ -177,19 +268,206 @@ function net_host_send_welcome(_ip, _port, _player_id) {
 		buffer_seek(send_buffer, buffer_seek_start, 0);
 		buffer_write(send_buffer, buffer_u8, NET_MSG_WELCOME);
 		buffer_write(send_buffer, buffer_u8, _player_id);
+		buffer_write(send_buffer, buffer_string, lobby_name);
 		network_send_udp(socket, _ip, _port, send_buffer, buffer_tell(send_buffer));
 	}
 }
 
-/// @function net_host_send_snapshots()
-function net_host_send_snapshots() {
+/// @function net_host_send_lobby_state()
+function net_host_send_lobby_state() {
 	with (obj_net) {
 		if (array_length(client_ips) <= 0) {
 			return;
 		}
 
 		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_LOBBY_STATE);
+		buffer_write(send_buffer, buffer_string, lobby_name);
+		buffer_write(send_buffer, buffer_u8, map_index);
+		buffer_write(send_buffer, buffer_u16, match_time_sec);
+		buffer_write(send_buffer, buffer_u8, max_players);
+
+		var _count = net_lobby_player_count();
+		buffer_write(send_buffer, buffer_u8, _count);
+
+		// Host entry
+		buffer_write(send_buffer, buffer_u8, 1);
+		buffer_write(send_buffer, buffer_string, global.player_name);
+		buffer_write(send_buffer, buffer_u8, 1); // is host
+
+		for (var _i = 0; _i < array_length(client_player_ids); _i++) {
+			buffer_write(send_buffer, buffer_u8, client_player_ids[_i]);
+			buffer_write(send_buffer, buffer_string, client_names[_i]);
+			buffer_write(send_buffer, buffer_u8, 0);
+		}
+
+		var _size = buffer_tell(send_buffer);
+		for (var _c = 0; _c < array_length(client_ips); _c++) {
+			network_send_udp(socket, client_ips[_c], client_ports[_c], send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_host_send_start()
+function net_host_send_start() {
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_START);
+		buffer_write(send_buffer, buffer_u8, map_index);
+		buffer_write(send_buffer, buffer_u16, match_time_sec);
+		var _size = buffer_tell(send_buffer);
+		for (var _i = 0; _i < array_length(client_ips); _i++) {
+			network_send_udp(socket, client_ips[_i], client_ports[_i], send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_host_send_match_end()
+function net_host_send_match_end() {
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_MATCH_END);
+		buffer_write(send_buffer, buffer_u8, array_length(results));
+		for (var _i = 0; _i < array_length(results); _i++) {
+			buffer_write(send_buffer, buffer_string, results[_i].name);
+			buffer_write(send_buffer, buffer_u16, results[_i].kills);
+			buffer_write(send_buffer, buffer_u16, results[_i].deaths);
+		}
+		var _size = buffer_tell(send_buffer);
+		for (var _c = 0; _c < array_length(client_ips); _c++) {
+			network_send_udp(socket, client_ips[_c], client_ports[_c], send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_collect_results()
+function net_collect_results() {
+	var _results = [];
+	with (obj_player) {
+		array_push(_results, {
+			name: display_name,
+			kills: kills,
+			deaths: deaths,
+			player_id: player_id
+		});
+	}
+
+	// Sort by kills desc, deaths asc
+	array_sort(_results, function(_a, _b) {
+		if (_a.kills == _b.kills) {
+			return sign(_a.deaths - _b.deaths);
+		}
+		return sign(_b.kills - _a.kills);
+	});
+	return _results;
+}
+
+/// @function net_begin_match()
+function net_begin_match() {
+	with (obj_net) {
+		phase = "match";
+		match_frames_left = match_time_sec * 60;
+		results = [];
+		with (obj_player) {
+			instance_destroy();
+		}
+		with (obj_bullet) {
+			instance_destroy();
+		}
+		net_host_send_start();
+		room_goto(arena_room_from_index(map_index));
+	}
+}
+
+/// @function net_end_match()
+function net_end_match() {
+	with (obj_net) {
+		if (phase != "match") {
+			return;
+		}
+		results = net_collect_results();
+		phase = "results";
+		net_host_send_match_end();
+		with (obj_player) {
+			instance_destroy();
+		}
+		with (obj_bullet) {
+			instance_destroy();
+		}
+		status_text = "Match over";
+		status_detail = "View scoreboard";
+	}
+}
+
+/// @function net_host_send_return_lobby()
+function net_host_send_return_lobby() {
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_RETURN_LOBBY);
+		var _size = buffer_tell(send_buffer);
+		for (var _i = 0; _i < array_length(client_ips); _i++) {
+			network_send_udp(socket, client_ips[_i], client_ports[_i], send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_return_to_lobby()
+function net_return_to_lobby() {
+	with (obj_net) {
+		phase = "lobby";
+		match_frames_left = 0;
+		results = [];
+		with (obj_player) {
+			instance_destroy();
+		}
+		with (obj_bullet) {
+			instance_destroy();
+		}
+		if (is_host) {
+			net_host_send_return_lobby();
+		}
+		room_goto(room_lobby);
+		if (is_host) {
+			net_host_send_lobby_state();
+		}
+	}
+}
+
+/// @function net_spawn_match_players()
+function net_spawn_match_players() {
+	if (!instance_exists(obj_net)) {
+		return;
+	}
+
+	with (obj_net) {
+		if (is_host) {
+			if (net_find_player(1) == noone) {
+				player_spawn_at_point(1, true, global.player_name);
+			}
+			for (var _i = 0; _i < array_length(client_player_ids); _i++) {
+				var _pid = client_player_ids[_i];
+				if (net_find_player(_pid) == noone) {
+					player_spawn_at_point(_pid, false, client_names[_i]);
+				}
+			}
+		} else if (is_client && joined) {
+			if (net_find_player(local_player_id) == noone) {
+				player_spawn_at_point(local_player_id, true, global.player_name);
+			}
+		}
+	}
+}
+
+/// @function net_host_send_snapshots()
+function net_host_send_snapshots() {
+	with (obj_net) {
+		if (phase != "match" || array_length(client_ips) <= 0) {
+			return;
+		}
+
+		buffer_seek(send_buffer, buffer_seek_start, 0);
 		buffer_write(send_buffer, buffer_u8, NET_MSG_SNAPSHOT);
+		buffer_write(send_buffer, buffer_u16, max(0, ceil(match_frames_left / 60)));
 
 		var _player_count_pos = buffer_tell(send_buffer);
 		buffer_write(send_buffer, buffer_u8, 0);
@@ -205,6 +483,7 @@ function net_host_send_snapshots() {
 			buffer_write(other.send_buffer, buffer_u8, ammo);
 			buffer_write(other.send_buffer, buffer_u8, reloading ? 1 : 0);
 			buffer_write(other.send_buffer, buffer_u16, kills);
+			buffer_write(other.send_buffer, buffer_u16, deaths);
 			buffer_write(other.send_buffer, buffer_string, display_name);
 			_player_count += 1;
 		}
@@ -246,11 +525,18 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 			_join_name = buffer_read(_buffer, buffer_string);
 		}
 		var _pid = net_host_add_client(_ip, _port, _join_name);
+		if (_pid < 0) {
+			return;
+		}
 		net_host_send_welcome(_ip, _port, _pid);
+		net_host_send_lobby_state();
 		return;
 	}
 
 	if (_msg == NET_MSG_INPUT) {
+		if (obj_net.phase != "match") {
+			return;
+		}
 		var _index = net_host_find_client(_ip, _port);
 		if (_index < 0) {
 			return;
@@ -276,28 +562,150 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 	}
 }
 
+/// @function net_client_apply_lobby_state(_buffer)
+function net_client_apply_lobby_state(_buffer) {
+	with (obj_net) {
+		lobby_name = buffer_read(_buffer, buffer_string);
+		map_index = buffer_read(_buffer, buffer_u8);
+		match_time_sec = buffer_read(_buffer, buffer_u16);
+		max_players = buffer_read(_buffer, buffer_u8);
+
+		var _count = buffer_read(_buffer, buffer_u8);
+		lobby_roster = [];
+		for (var _i = 0; _i < _count; _i++) {
+			var _id = buffer_read(_buffer, buffer_u8);
+			var _name = buffer_read(_buffer, buffer_string);
+			var _is_host = buffer_read(_buffer, buffer_u8) == 1;
+			array_push(lobby_roster, {
+				player_id: _id,
+				name: _name,
+				is_host: _is_host
+			});
+		}
+	}
+}
+
+/// @function net_client_apply_match_end(_buffer)
+function net_client_apply_match_end(_buffer) {
+	with (obj_net) {
+		var _count = buffer_read(_buffer, buffer_u8);
+		results = [];
+		for (var _i = 0; _i < _count; _i++) {
+			array_push(results, {
+				name: buffer_read(_buffer, buffer_string),
+				kills: buffer_read(_buffer, buffer_u16),
+				deaths: buffer_read(_buffer, buffer_u16)
+			});
+		}
+		phase = "results";
+		with (obj_player) {
+			instance_destroy();
+		}
+		with (obj_bullet) {
+			instance_destroy();
+		}
+	}
+}
+
 /// @function net_client_handle_message(_msg, _buffer, _ip, _port)
 function net_client_handle_message(_msg, _buffer, _ip, _port) {
 	if (_msg == NET_MSG_WELCOME) {
 		var _pid = buffer_read(_buffer, buffer_u8);
+		var _lobby = PLAYER_NAME_DEFAULT + "'s Game";
+		if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
+			_lobby = buffer_read(_buffer, buffer_string);
+		}
+
 		obj_net.local_player_id = _pid;
 		obj_net.joined = true;
 		obj_net.host_ip = _ip;
 		obj_net.host_port = _port;
-		obj_net.status_text = "Joined as player " + string(_pid) + " @ " + string(_ip) + ":" + string(_port);
+		obj_net.lobby_name = _lobby;
+		obj_net.phase = "lobby";
+		obj_net.status_text = "Joined lobby";
+		obj_net.status_detail = _lobby;
 
-		if (room != room_arena_green) {
-			room_goto(room_arena_green);
-		} else if (net_find_player(_pid) == noone) {
-			player_spawn_at_point(_pid, true);
-		} else {
-			player_setup_net(net_find_player(_pid), _pid, true);
+		if (room != room_lobby) {
+			room_goto(room_lobby);
 		}
 		return;
 	}
 
+	if (_msg == NET_MSG_LOBBY_STATE) {
+		net_client_apply_lobby_state(_buffer);
+		return;
+	}
+
+	if (_msg == NET_MSG_START) {
+		obj_net.map_index = buffer_read(_buffer, buffer_u8);
+		obj_net.match_time_sec = buffer_read(_buffer, buffer_u16);
+		obj_net.phase = "match";
+		obj_net.match_frames_left = obj_net.match_time_sec * 60;
+		obj_net.results = [];
+		with (obj_player) {
+			instance_destroy();
+		}
+		with (obj_bullet) {
+			instance_destroy();
+		}
+		room_goto(arena_room_from_index(obj_net.map_index));
+		return;
+	}
+
+	if (_msg == NET_MSG_KICK) {
+		global.menu_message = "You were kicked from the lobby";
+		global.net_mode = "offline";
+		net_shutdown();
+		room_goto(room_main_menu);
+		return;
+	}
+
+	if (_msg == NET_MSG_HOST_LEFT) {
+		global.menu_message = "Host left the lobby";
+		global.net_mode = "offline";
+		net_shutdown();
+		room_goto(room_main_menu);
+		return;
+	}
+
+	if (_msg == NET_MSG_REJECT) {
+		var _reason = buffer_read(_buffer, buffer_u8);
+		if (_reason == NET_REJECT_FULL) {
+			global.menu_message = "Lobby is full";
+		} else if (_reason == NET_REJECT_IN_MATCH) {
+			global.menu_message = "Match already in progress";
+		} else {
+			global.menu_message = "Could not join lobby";
+		}
+		global.net_mode = "offline";
+		net_shutdown();
+		if (room != room_main_menu) {
+			room_goto(room_main_menu);
+		}
+		return;
+	}
+
+	if (_msg == NET_MSG_MATCH_END) {
+		net_client_apply_match_end(_buffer);
+		return;
+	}
+
+	if (_msg == NET_MSG_RETURN_LOBBY) {
+		obj_net.phase = "lobby";
+		obj_net.match_frames_left = 0;
+		obj_net.results = [];
+		with (obj_player) {
+			instance_destroy();
+		}
+		with (obj_bullet) {
+			instance_destroy();
+		}
+		room_goto(room_lobby);
+		return;
+	}
+
 	if (_msg == NET_MSG_SNAPSHOT) {
-		if (room != room_arena_green) {
+		if (!is_arena_room() || obj_net.phase != "match") {
 			return;
 		}
 		net_client_apply_snapshot(_buffer);
@@ -306,6 +714,8 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 
 /// @function net_client_apply_snapshot(_buffer)
 function net_client_apply_snapshot(_buffer) {
+	obj_net.match_frames_left = buffer_read(_buffer, buffer_u16) * 60;
+
 	var _player_count = buffer_read(_buffer, buffer_u8);
 	var _seen = [];
 
@@ -319,6 +729,7 @@ function net_client_apply_snapshot(_buffer) {
 		var _ammo = buffer_read(_buffer, buffer_u8);
 		var _reloading = buffer_read(_buffer, buffer_u8) == 1;
 		var _kills = buffer_read(_buffer, buffer_u16);
+		var _deaths = buffer_read(_buffer, buffer_u16);
 		var _name = buffer_read(_buffer, buffer_string);
 
 		array_push(_seen, _pid);
@@ -337,6 +748,7 @@ function net_client_apply_snapshot(_buffer) {
 		_player.ammo = _ammo;
 		_player.reloading = _reloading;
 		_player.kills = _kills;
+		_player.deaths = _deaths;
 		_player.display_name = player_name_sanitize(_name);
 		_player.is_local = (_pid == obj_net.local_player_id);
 	}

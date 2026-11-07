@@ -32,7 +32,7 @@ if (reloading) {
 }
 draw_text(_hud_x, _bar_y + 24, _ammo_text);
 
-draw_text(_hud_x, _bar_y + 48, "Kills: " + string(kills));
+draw_text(_hud_x, _bar_y + 48, "Kills: " + string(kills) + "   Deaths: " + string(deaths));
 
 // Simple roster
 var _roster_y = _bar_y + 80;
@@ -41,7 +41,7 @@ draw_text(_hud_x, _roster_y, "Players");
 _roster_y += 20;
 with (obj_player) {
 	draw_set_color(is_local ? c_lime : c_white);
-	draw_text(_hud_x, _roster_y, display_name + "  K:" + string(kills));
+	draw_text(_hud_x, _roster_y, display_name + "  K:" + string(kills) + " D:" + string(deaths));
 	_roster_y += 18;
 }
 

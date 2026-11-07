@@ -10,7 +10,15 @@ if (menu_state == "connecting") {
 		exit;
 	}
 
-	if (instance_exists(obj_net) && obj_net.joined) {
+	if (!instance_exists(obj_net)) {
+		global.net_mode = "offline";
+		menu_state = "main";
+		connect_timer = 0;
+		exit;
+	}
+
+	if (obj_net.joined) {
+		// WELCOME sends the client to room_lobby.
 		exit;
 	}
 
@@ -85,7 +93,9 @@ switch (_clicked) {
 	case 0:
 		global.net_mode = "host";
 		global.join_ip = "127.0.0.1";
-		room_goto(room_arena_green);
+		net_shutdown();
+		instance_create_layer(0, 0, "Instances", obj_net);
+		room_goto(room_lobby);
 		break;
 	case 1:
 		global.net_mode = "client";

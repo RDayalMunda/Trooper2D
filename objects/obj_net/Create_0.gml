@@ -8,6 +8,7 @@ local_player_id = 0;
 joined = false;
 join_cooldown = 0;
 snapshot_cooldown = 0;
+lobby_sync_cooldown = 0;
 bound_port = -1;
 host_failed = false;
 
@@ -19,6 +20,18 @@ client_ports = [];
 client_player_ids = [];
 client_names = [];
 next_player_id = 2;
+
+phase = "lobby"; // lobby | match | results
+if (!variable_global_exists("player_name")) {
+	player_name_load();
+}
+lobby_name = global.player_name + "'s Game";
+map_index = 0;
+match_time_sec = MATCH_TIME_DEFAULT;
+max_players = LOBBY_MAX_PLAYERS_DEFAULT;
+match_frames_left = 0;
+lobby_roster = [];
+results = [];
 
 send_buffer = buffer_create(2048, buffer_grow, 1);
 status_text = "";
@@ -35,8 +48,14 @@ if (is_host) {
 	} else {
 		local_player_id = 1;
 		host_port = bound_port;
+		joined = true;
 		status_text = "Hosting on port " + string(bound_port);
-		status_detail = "Waiting for players...";
+		status_detail = "Lobby open";
+		array_push(lobby_roster, {
+			player_id: 1,
+			name: global.player_name,
+			is_host: true
+		});
 	}
 } else if (is_client) {
 	socket = network_create_socket(network_socket_udp);

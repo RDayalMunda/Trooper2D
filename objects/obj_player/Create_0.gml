@@ -27,6 +27,7 @@ reload_timer = 0;
 reload_time = 75;
 
 kills = 0;
+deaths = 0;
 
 player_id = 0;
 is_local = true;

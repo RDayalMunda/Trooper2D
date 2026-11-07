@@ -1,4 +1,4 @@
-if (instance_exists(obj_net) && obj_net.is_client) {
+if (instance_exists(obj_net) && (obj_net.is_client || obj_net.phase != "match")) {
 	exit;
 }
 
@@ -12,6 +12,7 @@ hurt_cooldown = hurt_cooldown_max;
 if (hp <= 0) {
 	hp = 0;
 	alive = false;
+	deaths += 1;
 	respawn_timer = respawn_time;
 	hsp = 0;
 	vsp = 0;

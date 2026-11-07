@@ -63,7 +63,7 @@ if (menu_state == "connecting") {
 	}
 
 	draw_set_color(c_gray);
-	draw_text(room_width * 0.5, room_height * 0.86, "W/S or arrows  |  Enter / click");
+	draw_text(room_width * 0.5, room_height * 0.86, "W/S or arrows  |  Enter / click  |  Host opens a lobby first");
 }
 
 draw_set_halign(fa_left);

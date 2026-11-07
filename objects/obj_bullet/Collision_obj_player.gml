@@ -21,6 +21,7 @@ other.hurt_cooldown = other.hurt_cooldown_max;
 if (other.hp <= 0) {
 	other.hp = 0;
 	other.alive = false;
+	other.deaths += 1;
 	other.respawn_timer = other.respawn_time;
 	other.hsp = 0;
 	other.vsp = 0;

@@ -104,7 +104,7 @@ function player_gather_input(_player) {
 		_player.aim_dir = point_direction(_cx, _cy, mouse_x, mouse_y);
 	}
 
-	// Twin-stick / touch overlay
+	// Twin-stick / touch overlay — on mobile, aim ONLY from the right stick.
 	if (instance_exists(obj_touch_controls)) {
 		var _t = obj_touch_controls;
 		if (_t.left_active) {
@@ -117,8 +117,6 @@ function player_gather_input(_player) {
 			if (_t.shooting) {
 				_player.input_shoot = true;
 			}
-		} else if (_mobile) {
-			// Keep last aim on mobile when stick is released; never aim-to-tap.
 		}
 		if (_t.reload_pressed) {
 			_player.input_reload = true;

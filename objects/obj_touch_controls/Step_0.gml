@@ -8,17 +8,21 @@ if (!instance_exists(obj_net) || obj_net.phase != "match") {
 
 gui_w = display_get_gui_width();
 gui_h = display_get_gui_height();
-left_rest_x = 110;
-left_rest_y = gui_h - 110;
-right_rest_x = gui_w - 110;
-right_rest_y = gui_h - 110;
+var _s = ui_scale();
+stick_radius = TOUCH_STICK_RADIUS;
+left_rest_x = round(120 * _s);
+left_rest_y = gui_h - round(120 * _s);
+right_rest_x = gui_w - round(120 * _s);
+right_rest_y = gui_h - round(120 * _s);
+reload_w = round(120 * _s);
+reload_h = round(52 * _s);
 reload_x1 = gui_w - 16 - reload_w;
 reload_y1 = 64;
 reload_x2 = reload_x1 + reload_w;
 reload_y2 = reload_y1 + reload_h;
 
 var _zone_mid_x = gui_w * 0.5;
-var _zone_top = gui_h * 0.35;
+var _zone_top = gui_h * 0.32;
 
 reload_pressed = false;
 var _reload_held = false;
@@ -51,7 +55,7 @@ for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
 	var _tx = device_mouse_x_to_gui(_d);
 	var _ty = device_mouse_y_to_gui(_d);
 
-	// Reload button (top-right)
+	// Reload button (top-right) — held OR pressed
 	if (point_in_rectangle(_tx, _ty, reload_x1, reload_y1, reload_x2, reload_y2)) {
 		_reload_held = true;
 		continue;
@@ -62,7 +66,11 @@ for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
 		continue;
 	}
 
-	// New press: assign to a free stick by screen side
+	// Assign sticks only on the frame the finger goes down (avoids stealing)
+	if (!device_mouse_check_button_pressed(_d, mb_left)) {
+		continue;
+	}
+
 	if (!left_active && _tx < _zone_mid_x && _ty > _zone_top) {
 		left_active = true;
 		left_device = _d;
@@ -108,7 +116,7 @@ if (left_active) {
 	left_origin_y = left_rest_y;
 }
 
-// Update right stick
+// Update right stick — aim direction is exclusive to this stick
 if (right_active) {
 	var _rx = device_mouse_x_to_gui(right_device);
 	var _ry = device_mouse_y_to_gui(right_device);

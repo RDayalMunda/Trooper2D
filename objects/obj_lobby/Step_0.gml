@@ -4,7 +4,12 @@ if (!instance_exists(obj_net)) {
 }
 
 if (obj_net.host_failed) {
-	if (keyboard_check_pressed(vk_escape)) {
+	var _hb = host_failed_btn;
+	var _back = ui_back_pressed();
+	if (array_length(_hb) >= 4 && ui_pointer_pressed_in(_hb[0], _hb[1], _hb[2], _hb[3], false)) {
+		_back = true;
+	}
+	if (_back) {
 		global.net_mode = "offline";
 		global.menu_message = obj_net.status_detail;
 		net_shutdown();
@@ -22,7 +27,6 @@ var _rows = menu_rows;
 var _count = array_length(_rows);
 
 if (_net.is_host) {
-	// Keep host roster fresh locally
 	_net.lobby_roster = [{
 		player_id: 1,
 		name: global.player_name,
@@ -47,22 +51,31 @@ if (keyboard_check_pressed(vk_down) || keyboard_check_pressed(ord("S"))) {
 var _left = keyboard_check_pressed(vk_left) || keyboard_check_pressed(ord("A"));
 var _right = keyboard_check_pressed(vk_right) || keyboard_check_pressed(ord("D"));
 var _confirm = keyboard_check_pressed(vk_enter) || keyboard_check_pressed(vk_space);
-var _clicked = -1;
 
-if (mouse_check_button_pressed(mb_left) && array_length(row_y) == _count) {
-	for (var _r = 0; _r < _count; _r++) {
-		var _y1 = row_y[_r];
-		var _y2 = _y1 + row_h;
-		if (point_in_rectangle(mouse_x, mouse_y, row_x1, _y1, row_x1 + row_w, _y2)) {
-			_clicked = _r;
-			break;
+// Touch / click: arrows for Map / Time / Max, buttons for Start / Leave
+if (_net.is_host && array_length(arrow_left) >= 3) {
+	for (var _a = 0; _a < 3; _a++) {
+		var _al = arrow_left[_a];
+		var _ar = arrow_right[_a];
+		if (ui_pointer_pressed_in(_al[0], _al[1], _al[2], _al[3], false)) {
+			selected_slot = _a;
+			_left = true;
+		}
+		if (ui_pointer_pressed_in(_ar[0], _ar[1], _ar[2], _ar[3], false)) {
+			selected_slot = _a;
+			_right = true;
 		}
 	}
 }
 
-if (_clicked >= 0) {
-	selected_slot = _clicked;
-	_confirm = true;
+if (array_length(btn_rects) > 0) {
+	for (var _b = 0; _b < array_length(btn_rects); _b++) {
+		var _br = btn_rects[_b];
+		if (ui_pointer_pressed_in(_br[0], _br[1], _br[2], _br[3], false)) {
+			selected_slot = _br[4];
+			_confirm = true;
+		}
+	}
 }
 
 if (_net.is_host) {
@@ -103,8 +116,14 @@ if (_net.is_host) {
 			net_host_kick_player(_k);
 		}
 	}
+
+	if (ui_back_pressed()) {
+		global.net_mode = "offline";
+		global.menu_message = "Left lobby";
+		net_host_notify_left();
+		room_goto(room_main_menu);
+	}
 } else {
-	// Joiner: only Leave Lobby is selectable
 	if (_confirm && selected_slot == 0) {
 		global.net_mode = "offline";
 		global.menu_message = "Left lobby";
@@ -113,7 +132,7 @@ if (_net.is_host) {
 		exit;
 	}
 
-	if (keyboard_check_pressed(vk_escape)) {
+	if (ui_back_pressed()) {
 		global.net_mode = "offline";
 		global.menu_message = "Left lobby";
 		net_shutdown();

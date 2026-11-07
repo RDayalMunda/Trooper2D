@@ -37,6 +37,12 @@ send_buffer = buffer_create(2048, buffer_grow, 1);
 status_text = "";
 status_detail = "";
 
+results_btn_lobby = [0, 0, 0, 0];
+results_btn_menu = [0, 0, 0, 0];
+results_btn_menu_only = [0, 0, 0, 0];
+match_back_armed = false;
+match_back_timer = 0;
+
 if (is_host) {
 	var _bind = net_bind_host_socket();
 	socket = _bind[0];

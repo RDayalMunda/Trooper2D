@@ -12,8 +12,17 @@ if (obj_net.is_host) {
 	menu_rows = ["Leave Lobby"];
 }
 
-// Row hitboxes filled each Draw for mouse clicks
+var _s = ui_scale();
 row_x1 = 0;
 row_y = [];
-row_h = 34;
-row_w = 420;
+row_h = round(52 * _s);
+row_w = round(460 * _s);
+arrow_w = round(56 * _s);
+arrow_pad = 8;
+
+// Per-row arrow hitboxes filled in Draw (host settings only)
+arrow_left = [];
+arrow_right = [];
+btn_rects = []; // action buttons (Start / Leave / Back)
+
+host_failed_btn = [0, 0, 0, 0];

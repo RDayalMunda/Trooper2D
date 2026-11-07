@@ -17,12 +17,21 @@ menu_state = "main"; // main | connecting | customize
 connect_timer = 0;
 connect_timeout = 300; // ~5 seconds at 60 fps
 customize_blink = 0;
+back_quit_armed = false;
+back_quit_timer = 0;
 
-button_w = 280;
-button_h = 48;
-button_gap = 16;
+var _s = ui_scale();
+button_w = round(300 * _s);
+button_h = round(58 * _s);
+button_gap = round(18 * _s);
 menu_x = (room_width - button_w) * 0.5;
-menu_y = room_height * 0.40;
+menu_y = room_height * 0.38;
+
+// Customize layout
+name_box = [0, 0, 0, 0];
+btn_save = [0, 0, 0, 0];
+btn_cancel = [0, 0, 0, 0];
+btn_cancel_connect = [0, 0, 0, 0];
 
 // Leftover net object from a cancelled/failed session.
 if (instance_exists(obj_net)) {

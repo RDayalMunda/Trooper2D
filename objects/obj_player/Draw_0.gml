@@ -1,3 +1,7 @@
+if (!alive) {
+	exit;
+}
+
 draw_self();
 
 var _cx = x + sprite_width * 0.5;

@@ -62,10 +62,15 @@ move_x = 0; // -1..1 analog strafe
 move_y = 0; // -1..1 analog (negative = jet up)
 input_shoot = false;
 input_reload = false;
+input_throw_nade = false;
 input_want_pickup = false;
 want_pickup_net_id = 0;
 pickup_prompt_net_id = 0;
 pickup_prompt_name = "";
+
+// Separate throwable slot (never replaces weapon_id).
+grenades = FRAG_PICKUP_COUNT; // spawn with a full starter pack (3)
+nade_cooldown = 0;
 
 // Cosmetics / layered draw (collision still uses spr_player mask)
 cosmetic_head = 0;

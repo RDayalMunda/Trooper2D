@@ -12,7 +12,7 @@ var _hud_y = round(16 * _s);
 var _bar_w = round(160 * _s);
 var _bar_h = round(12 * _s);
 var _panel_w = round(200 * _s);
-var _panel_h = round(148 * _s);
+var _panel_h = round(172 * _s);
 
 draw_ui_panel(_hud_x - round(8 * _s), _hud_y - round(8 * _s), _hud_x - round(8 * _s) + _panel_w, _hud_y - round(8 * _s) + _panel_h, 0.40);
 
@@ -49,8 +49,9 @@ if (reloading) {
 	_ammo_text = _gun_name + ": " + string(mag) + " / " + string(reserve);
 }
 draw_text(_hud_x, _fuel_y + 24, _ammo_text);
+draw_text(_hud_x, _fuel_y + 44, "Frag: " + string(grenades));
 
-draw_text(_hud_x, _fuel_y + 48, "Kills: " + string(kills) + "   Deaths: " + string(deaths));
+draw_text(_hud_x, _fuel_y + 64, "Kills: " + string(kills) + "   Deaths: " + string(deaths));
 
 if (!alive) {
 	draw_set_halign(fa_center);

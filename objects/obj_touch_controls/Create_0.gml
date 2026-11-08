@@ -23,6 +23,8 @@ shooting = false;
 
 reload_pressed = false;
 reload_down = false;
+nade_pressed = false;
+nade_down = false;
 zoom_pressed = false;
 zoom_down = false;
 
@@ -46,3 +48,8 @@ reload_x1 = zoom_x1;
 reload_y1 = zoom_y2 + 8;
 reload_x2 = zoom_x2;
 reload_y2 = reload_y1 + reload_h;
+
+nade_x1 = reload_x1;
+nade_y1 = reload_y2 + 8;
+nade_x2 = reload_x2;
+nade_y2 = nade_y1 + reload_h;

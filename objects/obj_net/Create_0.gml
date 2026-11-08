@@ -50,6 +50,7 @@ lobby_roster = [];
 results = [];
 kill_feed = [];
 next_bullet_id = 1;
+next_grenade_id = 1;
 next_weapon_pickup_id = 1;
 weapon_spawn_timer = WEAPON_SPAWN_FIRST_DELAY;
 match_end_resend_left = 0;

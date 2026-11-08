@@ -18,6 +18,7 @@
 #macro NET_MSG_WANT_PICKUP 14
 #macro NET_MSG_LEAVE 15
 #macro NET_MSG_KILL_FEED 16
+#macro NET_MSG_FRAG_BOOM 17 // host → clients: explosion FX at x,y
 
 #macro NET_REJECT_FULL 1
 #macro NET_REJECT_IN_MATCH 2
@@ -323,6 +324,7 @@ function player_gather_input(_player) {
 	_player.move_y = 0;
 	_player.input_shoot = false;
 	_player.input_reload = false;
+	_player.input_throw_nade = false;
 
 	if (!_mobile) {
 		var _kx = 0;
@@ -347,6 +349,7 @@ function player_gather_input(_player) {
 
 		_player.input_shoot = mouse_check_button(mb_left);
 		_player.input_reload = keyboard_check_pressed(ord("R"));
+		_player.input_throw_nade = keyboard_check_pressed(ord("G"));
 
 		var _cx = _player.x + _player.sprite_width * 0.5;
 		var _cy = _player.y + _player.sprite_height * 0.5;
@@ -370,6 +373,23 @@ function player_gather_input(_player) {
 		if (_t.reload_pressed) {
 			_player.input_reload = true;
 		}
+		if (_t.nade_pressed) {
+			_player.input_throw_nade = true;
+		}
+	}
+
+	// Desktop / shared GUI nade button (works even without a touch press this frame).
+	var _nr = match_hud_nade_rect();
+	if (ui_pointer_pressed_in(_nr[0], _nr[1], _nr[2], _nr[3], true)) {
+		_player.input_throw_nade = true;
+	}
+	// Holding the Frag button must not also fire the gun (shared left click / touch).
+	if (point_in_rectangle(
+		device_mouse_x_to_gui(0),
+		device_mouse_y_to_gui(0),
+		_nr[0], _nr[1], _nr[2], _nr[3]
+	) && device_mouse_check_button(0, mb_left)) {
+		_player.input_shoot = false;
 	}
 }
 
@@ -770,6 +790,7 @@ function net_client_send_input() {
 		var _bits = 0;
 		if (_local.input_shoot) _bits |= 1;
 		if (_local.input_reload) _bits |= 2;
+		if (_local.input_throw_nade) _bits |= 4;
 		buffer_write(send_buffer, buffer_u8, _bits);
 		buffer_write(send_buffer, buffer_s8, clamp(round(_local.move_x * 127), -127, 127));
 		buffer_write(send_buffer, buffer_s8, clamp(round(_local.move_y * 127), -127, 127));
@@ -907,6 +928,7 @@ function net_begin_match() {
 		results = [];
 		kill_feed = [];
 		next_bullet_id = 1;
+		next_grenade_id = 1;
 		next_weapon_pickup_id = 1;
 		weapon_spawn_timer = WEAPON_SPAWN_FIRST_DELAY;
 		match_end_resend_left = 0;
@@ -915,6 +937,12 @@ function net_begin_match() {
 			instance_destroy();
 		}
 		with (obj_bullet) {
+			instance_destroy();
+		}
+		with (obj_grenade) {
+			instance_destroy();
+		}
+		with (obj_frag_explosion) {
 			instance_destroy();
 		}
 		weapon_pickup_clear_all();
@@ -938,6 +966,12 @@ function net_end_match() {
 			instance_destroy();
 		}
 		with (obj_bullet) {
+			instance_destroy();
+		}
+		with (obj_grenade) {
+			instance_destroy();
+		}
+		with (obj_frag_explosion) {
 			instance_destroy();
 		}
 		weapon_pickup_clear_all();
@@ -968,6 +1002,12 @@ function net_return_to_lobby() {
 			instance_destroy();
 		}
 		with (obj_bullet) {
+			instance_destroy();
+		}
+		with (obj_grenade) {
+			instance_destroy();
+		}
+		with (obj_frag_explosion) {
 			instance_destroy();
 		}
 		weapon_pickup_clear_all();
@@ -1036,6 +1076,7 @@ function net_host_send_snapshots() {
 			buffer_write(other.send_buffer, buffer_u8, weapon_id);
 			buffer_write(other.send_buffer, buffer_u8, clamp(mag, 0, 255));
 			buffer_write(other.send_buffer, buffer_u8, clamp(reserve, 0, 255));
+			buffer_write(other.send_buffer, buffer_u8, clamp(grenades, 0, 255));
 			buffer_write(other.send_buffer, buffer_u8, reloading ? 1 : 0);
 			buffer_write(other.send_buffer, buffer_u8, clamp(round(fuel), 0, 255));
 			buffer_write(other.send_buffer, buffer_u16, kills);
@@ -1093,11 +1134,62 @@ function net_host_send_snapshots() {
 		buffer_write(send_buffer, buffer_u8, _pickup_count);
 		buffer_seek(send_buffer, buffer_seek_start, _after_pickups);
 
+		var _grenade_count_pos = buffer_tell(send_buffer);
+		buffer_write(send_buffer, buffer_u8, 0);
+		var _grenade_count = 0;
+		with (obj_grenade) {
+			if (!is_ghost && net_id > 0 && _grenade_count < NET_GRENADE_MAX) {
+				buffer_write(other.send_buffer, buffer_u16, net_id);
+				buffer_write(other.send_buffer, buffer_f32, x);
+				buffer_write(other.send_buffer, buffer_f32, y);
+				buffer_write(other.send_buffer, buffer_f32, hsp);
+				buffer_write(other.send_buffer, buffer_f32, vsp);
+				buffer_write(other.send_buffer, buffer_u16, clamp(fuse, 0, 65535));
+				buffer_write(other.send_buffer, buffer_u8, owner_player_id);
+				_grenade_count += 1;
+			}
+		}
+		var _after_grenades = buffer_tell(send_buffer);
+		buffer_seek(send_buffer, buffer_seek_start, _grenade_count_pos);
+		buffer_write(send_buffer, buffer_u8, _grenade_count);
+		buffer_seek(send_buffer, buffer_seek_start, _after_grenades);
+
 		var _size = buffer_tell(send_buffer);
 		for (var _i = 0; _i < array_length(client_ips); _i++) {
 			network_send_udp(socket, client_ips[_i], client_ports[_i], send_buffer, _size);
 		}
 	}
+}
+
+/// @function net_host_broadcast_frag_boom(_x, _y)
+/// @description Tell clients to play explosion FX (damage already applied on host).
+function net_host_broadcast_frag_boom(_x, _y) {
+	if (!instance_exists(obj_net) || !obj_net.is_host) {
+		return;
+	}
+	if (array_length(obj_net.client_ips) <= 0) {
+		return;
+	}
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_FRAG_BOOM);
+		buffer_write(send_buffer, buffer_f32, _x);
+		buffer_write(send_buffer, buffer_f32, _y);
+		var _size = buffer_tell(send_buffer);
+		for (var _c = 0; _c < array_length(client_ips); _c++) {
+			network_send_udp(socket, client_ips[_c], client_ports[_c], send_buffer, _size);
+		}
+	}
+}
+
+/// @function net_find_grenade(_net_id)
+function net_find_grenade(_net_id) {
+	with (obj_grenade) {
+		if (net_id == _net_id) {
+			return id;
+		}
+	}
+	return noone;
 }
 
 /// @function net_host_handle_message(_msg, _buffer, _ip, _port)
@@ -1163,6 +1255,10 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		var _bits = buffer_read(_buffer, buffer_u8);
 		_player.input_shoot = (_bits & 1) != 0;
 		_player.input_reload = (_bits & 2) != 0;
+		// Throw is edge-triggered on client; OR so a late packet still arms one throw.
+		if ((_bits & 4) != 0) {
+			_player.input_throw_nade = true;
+		}
 		_player.move_x = clamp(buffer_read(_buffer, buffer_s8) / 127, -1, 1);
 		_player.move_y = clamp(buffer_read(_buffer, buffer_s8) / 127, -1, 1);
 		_player.aim_dir = buffer_read(_buffer, buffer_f32);
@@ -1258,6 +1354,12 @@ function net_client_apply_match_end(_buffer) {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		with (obj_grenade) {
+			instance_destroy();
+		}
+		with (obj_frag_explosion) {
+			instance_destroy();
+		}
 		weapon_pickup_clear_all();
 	}
 }
@@ -1319,6 +1421,12 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		with (obj_grenade) {
+			instance_destroy();
+		}
+		with (obj_frag_explosion) {
+			instance_destroy();
+		}
 		weapon_pickup_clear_all();
 		room_goto(arena_room_from_index(obj_net.map_index));
 		return;
@@ -1331,6 +1439,13 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		var _kid = buffer_read(_buffer, buffer_u8);
 		var _vid = buffer_read(_buffer, buffer_u8);
 		killfeed_push(_kname, _vname, weapon_name(_wid), _kid, _vid);
+		return;
+	}
+
+	if (_msg == NET_MSG_FRAG_BOOM) {
+		var _bx = buffer_read(_buffer, buffer_f32);
+		var _by = buffer_read(_buffer, buffer_f32);
+		grenade_spawn_explosion_fx(_bx, _by);
 		return;
 	}
 
@@ -1395,6 +1510,12 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		with (obj_grenade) {
+			instance_destroy();
+		}
+		with (obj_frag_explosion) {
+			instance_destroy();
+		}
 		weapon_pickup_clear_all();
 		room_goto(room_lobby);
 		return;
@@ -1426,6 +1547,7 @@ function net_client_apply_snapshot(_buffer) {
 		var _wid = buffer_read(_buffer, buffer_u8);
 		var _mag = buffer_read(_buffer, buffer_u8);
 		var _reserve = buffer_read(_buffer, buffer_u8);
+		var _grenades = buffer_read(_buffer, buffer_u8);
 		var _reloading = buffer_read(_buffer, buffer_u8) == 1;
 		var _fuel = buffer_read(_buffer, buffer_u8);
 		var _kills = buffer_read(_buffer, buffer_u16);
@@ -1471,6 +1593,7 @@ function net_client_apply_snapshot(_buffer) {
 		}
 		_player.reloading = _reloading;
 		_player.fuel = _fuel;
+		_player.grenades = clamp(_grenades, 0, FRAG_MAX_CARRY);
 		_player.kills = clamp(_kills, 0, 999);
 		_player.deaths = clamp(_deaths, 0, 999);
 		_player.alive = _alive;
@@ -1604,6 +1727,57 @@ function net_client_apply_snapshot(_buffer) {
 
 	with (obj_weapon_pickup) {
 		if (!net_seen) {
+			instance_destroy();
+		}
+	}
+
+	with (obj_grenade) {
+		if (is_ghost) {
+			net_seen = false;
+		}
+	}
+
+	var _grenade_count = 0;
+	if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
+		_grenade_count = buffer_read(_buffer, buffer_u8);
+	}
+	for (var _g = 0; _g < _grenade_count; _g++) {
+		var _gid = buffer_read(_buffer, buffer_u16);
+		var _gx = buffer_read(_buffer, buffer_f32);
+		var _gy = buffer_read(_buffer, buffer_f32);
+		var _gh = buffer_read(_buffer, buffer_f32);
+		var _gv = buffer_read(_buffer, buffer_f32);
+		var _gfuse = buffer_read(_buffer, buffer_u16);
+		var _gowner = buffer_read(_buffer, buffer_u8);
+
+		var _gren = net_find_grenade(_gid);
+		if (_gren == noone) {
+			_gren = instance_create_layer(_gx, _gy, "Instances", obj_grenade);
+			_gren.net_id = _gid;
+			_gren.is_ghost = true;
+		} else {
+			_gren.x = lerp(_gren.x, _gx, 0.7);
+			_gren.y = lerp(_gren.y, _gy, 0.7);
+		}
+		_gren.hsp = _gh;
+		_gren.vsp = _gv;
+		_gren.fuse = _gfuse;
+		_gren.owner_player_id = _gowner;
+		_gren.sprite_index = spr_weapon_frag;
+		_gren.image_index = FRAG_IMAGE_PRIMED;
+		_gren.image_speed = 0;
+		_gren.image_xscale = FRAG_WORLD_SCALE;
+		_gren.image_yscale = FRAG_WORLD_SCALE;
+		_gren.mask_index = spr_weapon_frag;
+		_gren.image_angle = 0; // collision stays axis-aligned
+		if (!variable_instance_exists(_gren, "spin")) {
+			_gren.spin = 0;
+		}
+		_gren.net_seen = true;
+	}
+
+	with (obj_grenade) {
+		if (is_ghost && !net_seen) {
 			instance_destroy();
 		}
 	}

@@ -2,9 +2,10 @@ if (!instance_exists(obj_net) || obj_net.phase != "match") {
 	left_active = false;
 	right_active = false;
 	shooting = false;
-	reload_pressed = false;
-	zoom_pressed = false;
-	exit;
+reload_pressed = false;
+nade_pressed = false;
+zoom_pressed = false;
+exit;
 }
 
 gui_w = display_get_gui_width();
@@ -29,12 +30,19 @@ reload_y1 = zoom_y2 + 8;
 reload_x2 = zoom_x2;
 reload_y2 = reload_y1 + reload_h;
 
+nade_x1 = reload_x1;
+nade_y1 = reload_y2 + 8;
+nade_x2 = reload_x2;
+nade_y2 = nade_y1 + reload_h;
+
 var _zone_mid_x = gui_w * 0.5;
 var _zone_top = gui_h * 0.32;
 
 reload_pressed = false;
+nade_pressed = false;
 zoom_pressed = false;
 var _reload_held = false;
+var _nade_held = false;
 var _zoom_held = false;
 
 // Release sticks if their finger lifted
@@ -77,6 +85,12 @@ for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
 		continue;
 	}
 
+	// Frag throw button under reload
+	if (point_in_rectangle(_tx, _ty, nade_x1, nade_y1, nade_x2, nade_y2)) {
+		_nade_held = true;
+		continue;
+	}
+
 	// Already claimed by a stick
 	if (_d == left_device || _d == right_device) {
 		continue;
@@ -116,6 +130,15 @@ if (_reload_held) {
 	reload_down = true;
 } else {
 	reload_down = false;
+}
+
+if (_nade_held) {
+	if (!nade_down) {
+		nade_pressed = true;
+	}
+	nade_down = true;
+} else {
+	nade_down = false;
 }
 
 if (zoom_pressed) {

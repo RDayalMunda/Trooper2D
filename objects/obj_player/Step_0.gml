@@ -11,6 +11,10 @@ if (hit_bar_timer > 0) {
 	hit_bar_timer -= 1;
 }
 
+if (nade_cooldown > 0) {
+	nade_cooldown -= 1;
+}
+
 // Remote players on clients: interpolate toward latest auth snapshot.
 if (_client_match && !is_local) {
 	if (net_interp_t < 1) {
@@ -56,6 +60,7 @@ if (!alive) {
 	move_y = 0;
 	input_shoot = false;
 	input_reload = false;
+	input_throw_nade = false;
 	// Only host / offline own respawn timing; clients wait for auth.
 	if (!_client_match) {
 		respawn_timer -= 1;
@@ -67,6 +72,7 @@ if (!alive) {
 			hp_idle_timer = 0;
 			hit_bar_timer = 0;
 			weapon_restore_loadout(id);
+			grenades = FRAG_PICKUP_COUNT; // respawn with a fresh starter pack
 			// Brief hazard immunity on spawn so you don't instantly re-tick lava/void.
 			// Bullets are unaffected (no combat i-frames).
 			hazard_cooldown = hazard_cooldown_max;
@@ -217,7 +223,14 @@ if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != 
 	}
 }
 
-// Pickup prompt (local) + same-gun siphon / swap (host/offline).
+// Frag throw — host/offline creates the nade; clients only signal via input bit.
+if (alive && input_throw_nade && grenades > 0 && nade_cooldown <= 0) {
+	if (!_client_match) {
+		grenade_throw(id);
+	}
+}
+
+// Pickup prompt (local) + frag auto-collect / gun siphon+swap (host/offline).
 if (alive) {
 	if (is_local) {
 		weapon_update_local_prompt(id);
@@ -241,14 +254,11 @@ if (alive) {
 	}
 
 	if (!_client_match) {
-		// Host/offline: auto ammo siphon for same gun (all players).
-		var _near = weapon_pickup_find_near(id);
-		if (_near != noone && !_near.is_ghost && _near.weapon_id == weapon_id) {
-			weapon_siphon_from_pickup(id, _near);
-		}
+		weapon_player_auth_pickups(id);
 	}
 }
 
-// One-shot reload must not stick on remote players.
+// One-shot inputs must not stick on remote players.
 input_reload = false;
+input_throw_nade = false;
 input_want_pickup = false;

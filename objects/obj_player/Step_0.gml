@@ -164,14 +164,20 @@ if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != 
 	var _cy = y + sprite_height * 0.55;
 	var _muzzle = trooper_muzzle_pos(_cx, _cy, aim_dir, trooper_scale);
 	var _spd = bullet_speed;
+	// Random recoil cone — M9 tighter than UZI (see weapon_def.spread_deg).
+	var _spread = weapon_bullet_spread_deg(weapon_id);
+	var _shot_dir = aim_dir + ((_spread > 0) ? random_range(-_spread, _spread) : 0);
 	var _bullet = instance_create_layer(_muzzle[0], _muzzle[1], layer, obj_bullet);
-	_bullet.hsp = lengthdir_x(_spd, aim_dir);
-	_bullet.vsp = lengthdir_y(_spd, aim_dir);
+	_bullet.hsp = lengthdir_x(_spd, _shot_dir);
+	_bullet.vsp = lengthdir_y(_spd, _shot_dir);
 	_bullet.damage = bullet_damage;
 	_bullet.weapon_id = weapon_id;
 	_bullet.owner = id;
 	_bullet.owner_player_id = net_id;
-	_bullet.image_angle = aim_dir;
+	_bullet.image_angle = _shot_dir;
+	_bullet.origin_x = _muzzle[0];
+	_bullet.origin_y = _muzzle[1];
+	_bullet.max_range = weapon_bullet_max_range(weapon_id);
 
 	var _wdef = weapon_def(weapon_id);
 	if (_wdef != undefined) {
@@ -186,7 +192,8 @@ if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != 
 		_bullet.is_predicted = true;
 		_bullet.net_id = 0;
 		_bullet.net_seen = true;
-		_bullet.life = 14;
+		// Range cull handles lifetime; keep a long fallback so prediction isn't cut short early.
+		_bullet.life = 600;
 	} else {
 		_bullet.is_ghost = false;
 		_bullet.is_predicted = false;

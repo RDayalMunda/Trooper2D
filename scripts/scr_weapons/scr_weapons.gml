@@ -27,7 +27,12 @@ function weapon_def(_weapon_id) {
 				fire_cooldown: 20,
 				reload_time: 70,
 				bullet_speed: 13,
-				damage: 14,
+				damage: 10,
+				// Half-angle of random aim cone (±deg). Lower = more stable.
+				spread_deg: 2.5,
+				// Max travel = this × view width at 1x zoom (see weapon_bullet_max_range).
+				// Shorter than UZI — pistol is the close-range option.
+				range_mul: 0.65,
 				zoom_levels: [1], // pistol: closest only
 				// Hand vs nozzle origin (sprite px, art faces right: -x = toward grip).
 				hand_ox: -130,
@@ -44,7 +49,11 @@ function weapon_def(_weapon_id) {
 				fire_cooldown: 5,
 				reload_time: 85,
 				bullet_speed: 12,
-				damage: 9,
+				damage: 6,
+				// Wider cone than M9 — SMG spray / recoil feel.
+				spread_deg: 7.5,
+				// Same reach the M9 used to have (~1× 1x-zoom screen width).
+				range_mul: 1.0,
 				zoom_levels: [1, 2], // SMG unlocks 2x
 				// Grip sits left + down from nozzle when facing right.
 				hand_ox: -110,
@@ -60,6 +69,25 @@ function weapon_clamp_id(_weapon_id) {
 		return _weapon_id;
 	}
 	return WEAPON_NONE;
+}
+
+/// @function weapon_bullet_max_range(_weapon_id)
+/// @description Despawn distance in world px (mul × view width at 1x zoom).
+function weapon_bullet_max_range(_weapon_id) {
+	var _def = weapon_def(_weapon_id);
+	var _mul = (_def != undefined && variable_struct_exists(_def, "range_mul")) ? _def.range_mul : 1.0;
+	var _size = cam_view_size_for_zoom(1);
+	return max(64, _size[0] * _mul);
+}
+
+/// @function weapon_bullet_spread_deg(_weapon_id)
+/// @description Random aim cone half-angle in degrees (0 = laser accurate).
+function weapon_bullet_spread_deg(_weapon_id) {
+	var _def = weapon_def(_weapon_id);
+	if (_def == undefined || !variable_struct_exists(_def, "spread_deg")) {
+		return 0;
+	}
+	return max(0, _def.spread_deg);
 }
 
 /// @function weapon_starter_ids()

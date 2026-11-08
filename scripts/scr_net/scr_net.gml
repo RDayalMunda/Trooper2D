@@ -220,6 +220,28 @@ function net_find_bullet(_net_id) {
 	return noone;
 }
 
+/// @function net_claim_predicted_bullet(_x, _y, _weapon_id)
+/// @description Joiners spawn a local predicted ghost on fire; the host later sends
+/// the real bullet. Claim the nearest unmatched prediction so we don't draw two.
+function net_claim_predicted_bullet(_x, _y, _weapon_id) {
+	var _best = noone;
+	var _best_d = 96;
+	with (obj_bullet) {
+		if (!is_predicted || !is_ghost) {
+			continue;
+		}
+		if (_weapon_id != WEAPON_NONE && weapon_id != _weapon_id) {
+			continue;
+		}
+		var _d = point_distance(x, y, _x, _y);
+		if (_d < _best_d) {
+			_best_d = _d;
+			_best = id;
+		}
+	}
+	return _best;
+}
+
 /// @function net_bind_host_socket()
 function net_bind_host_socket() {
 	for (var _port = NET_PORT_MIN; _port <= NET_PORT_MAX; _port++) {
@@ -1516,11 +1538,16 @@ function net_client_apply_snapshot(_buffer) {
 
 		var _bullet = net_find_bullet(_bid);
 		if (_bullet == noone) {
-			_bullet = instance_create_layer(_bx, _by, "Instances", obj_bullet);
+			// Prefer promoting a local predicted shot over spawning a second sprite.
+			_bullet = net_claim_predicted_bullet(_bx, _by, _bwid);
+			if (_bullet == noone) {
+				_bullet = instance_create_layer(_bx, _by, "Instances", obj_bullet);
+			}
 			_bullet.net_id = _bid;
 			_bullet.is_ghost = true;
 			_bullet.is_predicted = false;
 			_bullet.life = -1;
+			_bullet.max_range = 0; // host already culls by range
 		} else {
 			_bullet.x = lerp(_bullet.x, _bx, 0.65);
 			_bullet.y = lerp(_bullet.y, _by, 0.65);

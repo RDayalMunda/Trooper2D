@@ -15,6 +15,7 @@
 #macro NET_MSG_HOST_LEFT 11
 #macro NET_MSG_DISCOVER 12
 #macro NET_MSG_BEACON 13
+#macro NET_MSG_WANT_PICKUP 14
 
 #macro NET_REJECT_FULL 1
 #macro NET_REJECT_IN_MATCH 2
@@ -24,6 +25,7 @@
 #macro NET_SNAP_HARD 96
 #macro NET_MATCH_END_RESENDS 8
 #macro NET_MATCH_END_INTERVAL 12
+// Ground guns: see NET_WEAPON_PICKUP_MAX in scr_weapons.
 
 /// @function net_write_name(_buffer, _name)
 function net_write_name(_buffer, _name) {
@@ -45,6 +47,35 @@ function net_read_name(_buffer) {
 		}
 	}
 	return player_name_sanitize(_name);
+}
+
+/// @function net_write_cosmetics(_buffer, _head, _torso, _leg, _hand)
+function net_write_cosmetics(_buffer, _head, _torso, _leg, _hand) {
+	buffer_write(_buffer, buffer_u8, cosmetics_clamp_id(COS_PART_HEAD, _head));
+	buffer_write(_buffer, buffer_u8, cosmetics_clamp_id(COS_PART_TORSO, _torso));
+	buffer_write(_buffer, buffer_u8, cosmetics_clamp_id(COS_PART_LEG, _leg));
+	buffer_write(_buffer, buffer_u8, cosmetics_clamp_id(COS_PART_HAND, _hand));
+}
+
+/// @function net_read_cosmetics(_buffer)
+/// @description Returns [head, torso, leg, hand]. Defaults to 0s if truncated.
+function net_read_cosmetics(_buffer) {
+	var _head = 0;
+	var _torso = 0;
+	var _leg = 0;
+	var _hand = 0;
+	if (buffer_tell(_buffer) + 4 <= buffer_get_size(_buffer)) {
+		_head = buffer_read(_buffer, buffer_u8);
+		_torso = buffer_read(_buffer, buffer_u8);
+		_leg = buffer_read(_buffer, buffer_u8);
+		_hand = buffer_read(_buffer, buffer_u8);
+	}
+	return [
+		cosmetics_clamp_id(COS_PART_HEAD, _head),
+		cosmetics_clamp_id(COS_PART_TORSO, _torso),
+		cosmetics_clamp_id(COS_PART_LEG, _leg),
+		cosmetics_clamp_id(COS_PART_HAND, _hand)
+	];
 }
 
 /// @function net_find_bullet(_net_id)
@@ -103,8 +134,9 @@ function net_find_player(_player_id) {
 	return noone;
 }
 
-/// @function player_setup_net(_player, _player_id, _is_local, _display_name)
-function player_setup_net(_player, _player_id, _is_local, _display_name = undefined) {
+/// @function player_setup_net(_player, _player_id, _is_local, _display_name, _cosmetics)
+/// @param {Array|Undefined} _cosmetics Optional [head, torso, leg, hand]. Local ignores and uses save.
+function player_setup_net(_player, _player_id, _is_local, _display_name = undefined, _cosmetics = undefined) {
 	_player.net_id = _player_id;
 	_player.is_local = _is_local;
 	if (_display_name != undefined) {
@@ -115,6 +147,12 @@ function player_setup_net(_player, _player_id, _is_local, _display_name = undefi
 		}
 		_player.display_name = global.player_name;
 	}
+	if (_is_local) {
+		cosmetics_apply_local(_player);
+	} else if (is_array(_cosmetics) && array_length(_cosmetics) >= 4) {
+		cosmetics_apply_ids(_player, _cosmetics[0], _cosmetics[1], _cosmetics[2], _cosmetics[3]);
+	}
+	// Soft team tint on layered draw (via image_blend).
 	if (_player_id == 1) {
 		_player.image_blend = make_color_rgb(80, 200, 255);
 	} else {
@@ -180,13 +218,13 @@ function player_gather_input(_player) {
 	}
 }
 
-/// @function player_spawn_at_point(_player_id, _is_local, _display_name)
-function player_spawn_at_point(_player_id, _is_local, _display_name = undefined) {
+/// @function player_spawn_at_point(_player_id, _is_local, _display_name, _cosmetics)
+function player_spawn_at_point(_player_id, _is_local, _display_name = undefined, _cosmetics = undefined) {
 	var _spawn = spawn_point_get_random();
 	var _x = (_spawn != noone) ? _spawn.x : room_width * 0.5;
 	var _y = (_spawn != noone) ? _spawn.y : room_height * 0.5;
 	var _player = instance_create_layer(_x, _y, "Instances", obj_player);
-	player_setup_net(_player, _player_id, _is_local, _display_name);
+	player_setup_net(_player, _player_id, _is_local, _display_name, _cosmetics);
 	return _player;
 }
 
@@ -232,12 +270,27 @@ function net_host_send_reject(_ip, _port, _reason) {
 	}
 }
 
-/// @function net_host_add_client(_ip, _port, _display_name)
-function net_host_add_client(_ip, _port, _display_name) {
+/// @function net_host_add_client(_ip, _port, _display_name, _cosmetics)
+/// @param {Array} _cosmetics [head, torso, leg, hand]
+function net_host_add_client(_ip, _port, _display_name, _cosmetics = undefined) {
 	var _name = player_name_sanitize(_display_name);
+	if (!is_array(_cosmetics) || array_length(_cosmetics) < 4) {
+		_cosmetics = [0, 0, 0, 0];
+	}
+	_cosmetics = [
+		cosmetics_clamp_id(COS_PART_HEAD, _cosmetics[0]),
+		cosmetics_clamp_id(COS_PART_TORSO, _cosmetics[1]),
+		cosmetics_clamp_id(COS_PART_LEG, _cosmetics[2]),
+		cosmetics_clamp_id(COS_PART_HAND, _cosmetics[3])
+	];
+
 	var _existing = net_host_find_client(_ip, _port);
 	if (_existing >= 0) {
 		obj_net.client_names[_existing] = _name;
+		obj_net.client_cos_head[_existing] = _cosmetics[0];
+		obj_net.client_cos_torso[_existing] = _cosmetics[1];
+		obj_net.client_cos_leg[_existing] = _cosmetics[2];
+		obj_net.client_cos_hand[_existing] = _cosmetics[3];
 		return obj_net.client_player_ids[_existing];
 	}
 
@@ -257,6 +310,10 @@ function net_host_add_client(_ip, _port, _display_name) {
 	array_push(obj_net.client_ports, _port);
 	array_push(obj_net.client_player_ids, _pid);
 	array_push(obj_net.client_names, _name);
+	array_push(obj_net.client_cos_head, _cosmetics[0]);
+	array_push(obj_net.client_cos_torso, _cosmetics[1]);
+	array_push(obj_net.client_cos_leg, _cosmetics[2]);
+	array_push(obj_net.client_cos_hand, _cosmetics[3]);
 
 	obj_net.status_text = "Hosting on port " + string(obj_net.bound_port);
 	obj_net.status_detail = _name + " joined lobby";
@@ -278,6 +335,10 @@ function net_host_remove_client_index(_index) {
 		array_delete(client_ports, _index, 1);
 		array_delete(client_player_ids, _index, 1);
 		array_delete(client_names, _index, 1);
+		array_delete(client_cos_head, _index, 1);
+		array_delete(client_cos_torso, _index, 1);
+		array_delete(client_cos_leg, _index, 1);
+		array_delete(client_cos_hand, _index, 1);
 	}
 }
 
@@ -430,9 +491,11 @@ function net_client_send_join() {
 			return;
 		}
 
+		var _cos = cosmetics_local_ids();
 		buffer_seek(send_buffer, buffer_seek_start, 0);
 		buffer_write(send_buffer, buffer_u8, NET_MSG_JOIN);
 		buffer_write(send_buffer, buffer_string, global.player_name);
+		net_write_cosmetics(send_buffer, _cos[0], _cos[1], _cos[2], _cos[3]);
 		var _size = buffer_tell(send_buffer);
 
 		if (joined) {
@@ -472,6 +535,23 @@ function net_client_send_input() {
 	}
 }
 
+/// @function net_client_send_want_pickup(_pickup_net_id)
+function net_client_send_want_pickup(_pickup_net_id) {
+	if (_pickup_net_id <= 0 || !instance_exists(obj_net)) {
+		return;
+	}
+	with (obj_net) {
+		if (!is_client || !joined || socket < 0 || host_ip == "") {
+			return;
+		}
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_WANT_PICKUP);
+		buffer_write(send_buffer, buffer_u8, local_player_id);
+		buffer_write(send_buffer, buffer_u16, _pickup_net_id);
+		network_send_udp(socket, host_ip, host_port, send_buffer, buffer_tell(send_buffer));
+	}
+}
+
 /// @function net_host_send_welcome(_ip, _port, _player_id)
 function net_host_send_welcome(_ip, _port, _player_id) {
 	with (obj_net) {
@@ -500,15 +580,18 @@ function net_host_send_lobby_state() {
 		var _count = net_lobby_player_count();
 		buffer_write(send_buffer, buffer_u8, _count);
 
+		cosmetics_ensure_globals();
 		// Host entry
 		buffer_write(send_buffer, buffer_u8, 1);
 		buffer_write(send_buffer, buffer_string, global.player_name);
 		buffer_write(send_buffer, buffer_u8, 1); // is host
+		net_write_cosmetics(send_buffer, global.cosmetic_head, global.cosmetic_torso, global.cosmetic_leg, global.cosmetic_hand);
 
 		for (var _i = 0; _i < array_length(client_player_ids); _i++) {
 			buffer_write(send_buffer, buffer_u8, client_player_ids[_i]);
 			buffer_write(send_buffer, buffer_string, client_names[_i]);
 			buffer_write(send_buffer, buffer_u8, 0);
+			net_write_cosmetics(send_buffer, client_cos_head[_i], client_cos_torso[_i], client_cos_leg[_i], client_cos_hand[_i]);
 		}
 
 		var _size = buffer_tell(send_buffer);
@@ -579,6 +662,8 @@ function net_begin_match() {
 		match_frames_left = match_time_sec * 60;
 		results = [];
 		next_bullet_id = 1;
+		next_weapon_pickup_id = 1;
+		weapon_spawn_timer = WEAPON_SPAWN_FIRST_DELAY;
 		match_end_resend_left = 0;
 		match_end_resend_timer = 0;
 		with (obj_player) {
@@ -587,6 +672,7 @@ function net_begin_match() {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		weapon_pickup_clear_all();
 		net_host_send_start();
 		room_goto(arena_room_from_index(map_index));
 	}
@@ -609,6 +695,7 @@ function net_end_match() {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		weapon_pickup_clear_all();
 		status_text = "Match over";
 		status_detail = "View scoreboard";
 	}
@@ -638,6 +725,7 @@ function net_return_to_lobby() {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		weapon_pickup_clear_all();
 		if (is_host) {
 			net_host_send_return_lobby();
 		}
@@ -662,7 +750,12 @@ function net_spawn_match_players() {
 			for (var _i = 0; _i < array_length(client_player_ids); _i++) {
 				var _pid = client_player_ids[_i];
 				if (net_find_player(_pid) == noone) {
-					player_spawn_at_point(_pid, false, client_names[_i]);
+					player_spawn_at_point(_pid, false, client_names[_i], [
+						client_cos_head[_i],
+						client_cos_torso[_i],
+						client_cos_leg[_i],
+						client_cos_hand[_i]
+					]);
 				}
 			}
 		} else if (is_client && joined) {
@@ -695,12 +788,15 @@ function net_host_send_snapshots() {
 			buffer_write(other.send_buffer, buffer_f32, aim_dir);
 			buffer_write(other.send_buffer, buffer_s16, hp);
 			buffer_write(other.send_buffer, buffer_u8, alive ? 1 : 0);
-			buffer_write(other.send_buffer, buffer_u8, ammo);
+			buffer_write(other.send_buffer, buffer_u8, weapon_id);
+			buffer_write(other.send_buffer, buffer_u8, clamp(mag, 0, 255));
+			buffer_write(other.send_buffer, buffer_u8, clamp(reserve, 0, 255));
 			buffer_write(other.send_buffer, buffer_u8, reloading ? 1 : 0);
 			buffer_write(other.send_buffer, buffer_u8, clamp(round(fuel), 0, 255));
 			buffer_write(other.send_buffer, buffer_u16, kills);
 			buffer_write(other.send_buffer, buffer_u16, deaths);
 			buffer_write(other.send_buffer, buffer_string, display_name);
+			net_write_cosmetics(other.send_buffer, cosmetic_head, cosmetic_torso, cosmetic_leg, cosmetic_hand);
 			_player_count += 1;
 		}
 
@@ -729,6 +825,28 @@ function net_host_send_snapshots() {
 		buffer_write(send_buffer, buffer_u8, _bullet_count);
 		buffer_seek(send_buffer, buffer_seek_start, _after_bullets);
 
+		var _pickup_count_pos = buffer_tell(send_buffer);
+		buffer_write(send_buffer, buffer_u8, 0);
+		var _pickup_count = 0;
+
+		with (obj_weapon_pickup) {
+			if (!is_ghost && net_id > 0 && _pickup_count < NET_WEAPON_PICKUP_MAX) {
+				buffer_write(other.send_buffer, buffer_u16, net_id);
+				buffer_write(other.send_buffer, buffer_u8, weapon_id);
+				buffer_write(other.send_buffer, buffer_f32, x);
+				buffer_write(other.send_buffer, buffer_f32, y);
+				buffer_write(other.send_buffer, buffer_u8, clamp(mag, 0, 255));
+				buffer_write(other.send_buffer, buffer_u8, clamp(reserve, 0, 255));
+				buffer_write(other.send_buffer, buffer_u16, clamp(life, 0, 65535));
+				_pickup_count += 1;
+			}
+		}
+
+		var _after_pickups = buffer_tell(send_buffer);
+		buffer_seek(send_buffer, buffer_seek_start, _pickup_count_pos);
+		buffer_write(send_buffer, buffer_u8, _pickup_count);
+		buffer_seek(send_buffer, buffer_seek_start, _after_pickups);
+
 		var _size = buffer_tell(send_buffer);
 		for (var _i = 0; _i < array_length(client_ips); _i++) {
 			network_send_udp(socket, client_ips[_i], client_ports[_i], send_buffer, _size);
@@ -748,7 +866,8 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
 			_join_name = buffer_read(_buffer, buffer_string);
 		}
-		var _pid = net_host_add_client(_ip, _port, _join_name);
+		var _join_cos = net_read_cosmetics(_buffer);
+		var _pid = net_host_add_client(_ip, _port, _join_name, _join_cos);
 		if (_pid < 0) {
 			return;
 		}
@@ -782,6 +901,28 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		_player.move_x = clamp(buffer_read(_buffer, buffer_s8) / 127, -1, 1);
 		_player.move_y = clamp(buffer_read(_buffer, buffer_s8) / 127, -1, 1);
 		_player.aim_dir = buffer_read(_buffer, buffer_f32);
+		return;
+	}
+
+	if (_msg == NET_MSG_WANT_PICKUP) {
+		if (obj_net.phase != "match") {
+			return;
+		}
+		var _windex = net_host_find_client(_ip, _port);
+		if (_windex < 0) {
+			return;
+		}
+		var _wpid = buffer_read(_buffer, buffer_u8);
+		if (_wpid != obj_net.client_player_ids[_windex]) {
+			return;
+		}
+		var _pickup_id = buffer_read(_buffer, buffer_u16);
+		var _wplayer = net_find_player(_wpid);
+		var _wpickup = weapon_pickup_find(_pickup_id);
+		if (_wplayer != noone && _wpickup != noone && !_wpickup.is_ghost) {
+			weapon_swap_with_pickup(_wplayer, _wpickup);
+		}
+		return;
 	}
 }
 
@@ -799,10 +940,15 @@ function net_client_apply_lobby_state(_buffer) {
 			var _id = buffer_read(_buffer, buffer_u8);
 			var _name = buffer_read(_buffer, buffer_string);
 			var _is_host = buffer_read(_buffer, buffer_u8) == 1;
+			var _cos = net_read_cosmetics(_buffer);
 			array_push(lobby_roster, {
 				net_id: _id,
 				name: _name,
-				is_host: _is_host
+				is_host: _is_host,
+				cosmetic_head: _cos[0],
+				cosmetic_torso: _cos[1],
+				cosmetic_leg: _cos[2],
+				cosmetic_hand: _cos[3]
 			});
 		}
 	}
@@ -846,6 +992,7 @@ function net_client_apply_match_end(_buffer) {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		weapon_pickup_clear_all();
 	}
 }
 
@@ -904,6 +1051,7 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		weapon_pickup_clear_all();
 		room_goto(arena_room_from_index(obj_net.map_index));
 		return;
 	}
@@ -969,6 +1117,7 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		with (obj_bullet) {
 			instance_destroy();
 		}
+		weapon_pickup_clear_all();
 		room_goto(room_lobby);
 		return;
 	}
@@ -995,12 +1144,15 @@ function net_client_apply_snapshot(_buffer) {
 		var _aim = buffer_read(_buffer, buffer_f32);
 		var _hp = buffer_read(_buffer, buffer_s16);
 		var _alive = buffer_read(_buffer, buffer_u8) == 1;
-		var _ammo = buffer_read(_buffer, buffer_u8);
+		var _wid = buffer_read(_buffer, buffer_u8);
+		var _mag = buffer_read(_buffer, buffer_u8);
+		var _reserve = buffer_read(_buffer, buffer_u8);
 		var _reloading = buffer_read(_buffer, buffer_u8) == 1;
 		var _fuel = buffer_read(_buffer, buffer_u8);
 		var _kills = buffer_read(_buffer, buffer_u16);
 		var _deaths = buffer_read(_buffer, buffer_u16);
 		var _name = buffer_read(_buffer, buffer_string);
+		var _cos = net_read_cosmetics(_buffer);
 
 		array_push(_seen, _pid);
 
@@ -1009,14 +1161,23 @@ function net_client_apply_snapshot(_buffer) {
 		var _spawned = false;
 		if (_player == noone) {
 			_player = instance_create_layer(_x, _y, "Instances", obj_player);
-			player_setup_net(_player, _pid, _is_local, _name);
+			player_setup_net(_player, _pid, _is_local, _name, _cos);
 			_spawned = true;
 		}
 
 		_player.is_local = _is_local;
 		_player.display_name = player_name_sanitize(_name);
+		if (!_is_local) {
+			cosmetics_apply_ids(_player, _cos[0], _cos[1], _cos[2], _cos[3]);
+		}
 		_player.hp = _hp;
-		_player.ammo = _ammo;
+		// Authoritative loadout (also corrects client's random starter pick).
+		if (_spawned || !_is_local || _player.weapon_id != _wid) {
+			weapon_apply(_player, _wid, _mag, _reserve);
+		} else {
+			_player.mag = _mag;
+			_player.reserve = _reserve;
+		}
 		_player.reloading = _reloading;
 		_player.fuel = _fuel;
 		_player.kills = clamp(_kills, 0, 999);
@@ -1103,6 +1264,41 @@ function net_client_apply_snapshot(_buffer) {
 
 	with (obj_bullet) {
 		if (is_ghost && !is_predicted && !net_seen) {
+			instance_destroy();
+		}
+	}
+
+	with (obj_weapon_pickup) {
+		net_seen = false;
+	}
+
+	var _pickup_count = 0;
+	if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
+		_pickup_count = buffer_read(_buffer, buffer_u8);
+	}
+	for (var _p = 0; _p < _pickup_count; _p++) {
+		var _pid = buffer_read(_buffer, buffer_u16);
+		var _pwid = buffer_read(_buffer, buffer_u8);
+		var _px = buffer_read(_buffer, buffer_f32);
+		var _py = buffer_read(_buffer, buffer_f32);
+		var _pmag = buffer_read(_buffer, buffer_u8);
+		var _pres = buffer_read(_buffer, buffer_u8);
+		var _plife = buffer_read(_buffer, buffer_u16);
+
+		var _pickup = weapon_pickup_find(_pid);
+		if (_pickup == noone) {
+			_pickup = instance_create_layer(_px, _py, "Instances", obj_weapon_pickup);
+			weapon_pickup_setup(_pickup, _pwid, _pmag, _pres, _plife, noone, _pid, true);
+		} else {
+			weapon_pickup_setup(_pickup, _pwid, _pmag, _pres, _plife, _pickup.spawn_point, _pid, true);
+			_pickup.x = _px;
+			_pickup.y = _py;
+		}
+		_pickup.net_seen = true;
+	}
+
+	with (obj_weapon_pickup) {
+		if (!net_seen) {
 			instance_destroy();
 		}
 	}

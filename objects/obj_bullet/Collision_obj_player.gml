@@ -15,7 +15,7 @@ if (other.hurt_cooldown > 0) {
 	exit;
 }
 
-other.hp -= other.bullet_damage;
+other.hp -= damage;
 other.hurt_cooldown = other.hurt_cooldown_max;
 other.hp_idle_timer = 0;
 

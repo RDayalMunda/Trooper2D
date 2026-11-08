@@ -182,15 +182,37 @@ if (menu_state == "join_ip") {
 
 if (menu_state == "customize") {
 	customize_blink += 1;
+	customize_walk += 1;
+	customize_preview_aim = (customize_preview_aim + 0.6) mod 360;
 
-	if (string_length(keyboard_string) > PLAYER_NAME_MAX) {
-		keyboard_string = string_copy(keyboard_string, 1, PLAYER_NAME_MAX);
+	var _s = ui_scale();
+	var _row_h = round(70 * _s);
+
+	// Name editing only while focused
+	if (customize_name_editing) {
+		if (string_length(keyboard_string) > PLAYER_NAME_MAX) {
+			keyboard_string = string_copy(keyboard_string, 1, PLAYER_NAME_MAX);
+		}
+		customize_edit_name = keyboard_string;
+		if (keyboard_check_pressed(vk_enter)) {
+			customize_name_editing = false;
+			if (input_is_mobile_touch()) {
+				keyboard_virtual_hide();
+			}
+			keyboard_string = "";
+		}
 	}
 
-	var _save = keyboard_check_pressed(vk_enter);
-	var _cancel_c = keyboard_check_pressed(vk_escape);
-	if (input_is_mobile_touch() && !keyboard_virtual_status() && keyboard_check_pressed(vk_backspace)) {
-		_cancel_c = true;
+	var _save = false;
+	var _cancel_c = false;
+	if (!customize_name_editing) {
+		_save = keyboard_check_pressed(vk_enter);
+		_cancel_c = keyboard_check_pressed(vk_escape);
+		if (input_is_mobile_touch() && !keyboard_virtual_status() && keyboard_check_pressed(vk_backspace)) {
+			_cancel_c = true;
+		}
+	} else {
+		_cancel_c = keyboard_check_pressed(vk_escape);
 	}
 
 	if (ui_pointer_pressed_in(btn_save[0], btn_save[1], btn_save[2], btn_save[3], false)) {
@@ -199,9 +221,130 @@ if (menu_state == "customize") {
 	if (ui_pointer_pressed_in(btn_cancel[0], btn_cancel[1], btn_cancel[2], btn_cancel[3], false)) {
 		_cancel_c = true;
 	}
+
+	// Tap name box → start editing (opens Android keyboard only then)
 	if (ui_pointer_pressed_in(name_box[0], name_box[1], name_box[2], name_box[3], false)) {
+		customize_name_editing = true;
+		keyboard_string = customize_edit_name;
 		if (input_is_mobile_touch()) {
 			keyboard_virtual_show(kbv_type_default, kbv_returnkey_done, kbv_autocapitalize_words, false);
+		}
+	} else if (customize_name_editing) {
+		// Tap elsewhere stops name edit (save/cancel/arrows keep focus handling above/below)
+		var _tap_else = false;
+		for (var _de = 0; _de < TOUCH_MAX_DEVICES; _de++) {
+			if (device_mouse_check_button_pressed(_de, mb_left)) {
+				_tap_else = true;
+				break;
+			}
+		}
+		if (!_tap_else) {
+			_tap_else = mouse_check_button_pressed(mb_left);
+		}
+		if (_tap_else
+			&& !ui_pointer_pressed_in(btn_save[0], btn_save[1], btn_save[2], btn_save[3], false)
+			&& !ui_pointer_pressed_in(btn_cancel[0], btn_cancel[1], btn_cancel[2], btn_cancel[3], false)
+			&& !ui_pointer_pressed_in(name_box[0], name_box[1], name_box[2], name_box[3], false)) {
+			var _on_arrow = false;
+			for (var _ai = 0; _ai < array_length(customize_arrow_l); _ai++) {
+				var _al = customize_arrow_l[_ai];
+				var _ar = customize_arrow_r[_ai];
+				if (array_length(_al) >= 4 && ui_pointer_pressed_in(_al[0], _al[1], _al[2], _al[3], false)) {
+					_on_arrow = true;
+					break;
+				}
+				if (array_length(_ar) >= 4 && ui_pointer_pressed_in(_ar[0], _ar[1], _ar[2], _ar[3], false)) {
+					_on_arrow = true;
+					break;
+				}
+			}
+			if (!_on_arrow) {
+				customize_name_editing = false;
+				if (input_is_mobile_touch()) {
+					keyboard_virtual_hide();
+				}
+				keyboard_string = "";
+			}
+		}
+	}
+
+	// Part selectors ← / →
+	var _parts = [COS_PART_HEAD, COS_PART_TORSO, COS_PART_LEG, COS_PART_HAND];
+	var _vals = [customize_head, customize_torso, customize_leg, customize_hand];
+	for (var _pi = 0; _pi < array_length(_parts); _pi++) {
+		if (_pi >= array_length(customize_arrow_l)) {
+			break;
+		}
+		var _l = customize_arrow_l[_pi];
+		var _r = customize_arrow_r[_pi];
+		var _delta = 0;
+		if (array_length(_l) >= 4 && ui_pointer_pressed_in(_l[0], _l[1], _l[2], _l[3], false)) {
+			_delta = -1;
+		}
+		if (array_length(_r) >= 4 && ui_pointer_pressed_in(_r[0], _r[1], _r[2], _r[3], false)) {
+			_delta = 1;
+		}
+		if (_delta != 0) {
+			var _count = cosmetics_part_count(_parts[_pi]);
+			_vals[_pi] = (_vals[_pi] + _delta + _count) mod _count;
+			customize_name_editing = false;
+			if (input_is_mobile_touch()) {
+				keyboard_virtual_hide();
+			}
+		}
+	}
+	customize_head = _vals[0];
+	customize_torso = _vals[1];
+	customize_leg = _vals[2];
+	customize_hand = _vals[3];
+
+	// Scroll list (drag + wheel)
+	var _mx = mouse_x;
+	var _my = mouse_y;
+	for (var _d = 0; _d < TOUCH_MAX_DEVICES; _d++) {
+		if (device_mouse_check_button(_d, mb_left)) {
+			_mx = device_mouse_x(_d);
+			_my = device_mouse_y(_d);
+			break;
+		}
+	}
+
+	if (customize_list_drag) {
+		var _held = mouse_check_button(mb_left);
+		for (var _d2 = 0; _d2 < TOUCH_MAX_DEVICES; _d2++) {
+			if (device_mouse_check_button(_d2, mb_left)) {
+				_held = true;
+				_my = device_mouse_y(_d2);
+				break;
+			}
+		}
+		if (_held) {
+			customize_scroll = clamp(customize_list_drag_scroll + (customize_list_drag_y - _my), 0, customize_scroll_max);
+		} else {
+			customize_list_drag = false;
+		}
+	} else if (customize_scroll_max > 0 && !customize_name_editing) {
+		if (ui_pointer_pressed_in(customize_list_x1, customize_list_y1, customize_list_x2, customize_list_y2, false)) {
+			var _hit_ctrl = ui_pointer_pressed_in(name_box[0], name_box[1], name_box[2], name_box[3], false);
+			for (var _hi = 0; _hi < array_length(customize_arrow_l) && !_hit_ctrl; _hi++) {
+				var _hl = customize_arrow_l[_hi];
+				var _hr = customize_arrow_r[_hi];
+				if (array_length(_hl) >= 4 && ui_pointer_pressed_in(_hl[0], _hl[1], _hl[2], _hl[3], false)) {
+					_hit_ctrl = true;
+				}
+				if (array_length(_hr) >= 4 && ui_pointer_pressed_in(_hr[0], _hr[1], _hr[2], _hr[3], false)) {
+					_hit_ctrl = true;
+				}
+			}
+			if (!_hit_ctrl) {
+				customize_list_drag = true;
+				customize_list_drag_y = _my;
+				customize_list_drag_scroll = customize_scroll;
+			}
+		}
+		var _wheel = mouse_wheel_up() - mouse_wheel_down();
+		if (_wheel != 0 && point_in_rectangle(_mx, _my, customize_list_x1, customize_list_y1, customize_list_x2, customize_list_y2)) {
+			customize_scroll = clamp(customize_scroll - _wheel * _row_h, 0, customize_scroll_max);
 		}
 	}
 
@@ -209,6 +352,7 @@ if (menu_state == "customize") {
 		if (input_is_mobile_touch()) {
 			keyboard_virtual_hide();
 		}
+		customize_name_editing = false;
 		menu_state = "main";
 		keyboard_string = "";
 		exit;
@@ -218,7 +362,9 @@ if (menu_state == "customize") {
 		if (input_is_mobile_touch()) {
 			keyboard_virtual_hide();
 		}
-		player_name_save(keyboard_string);
+		player_name_save(customize_edit_name);
+		cosmetics_save(customize_head, customize_torso, customize_leg, customize_hand);
+		customize_name_editing = false;
 		global.menu_message = "";
 		menu_state = "main";
 		keyboard_string = "";
@@ -286,9 +432,18 @@ switch (_clicked) {
 	case 2:
 		menu_state = "customize";
 		customize_blink = 0;
-		keyboard_string = global.player_name;
+		customize_walk = 0;
+		customize_name_editing = false;
+		customize_edit_name = global.player_name;
+		customize_head = global.cosmetic_head;
+		customize_torso = global.cosmetic_torso;
+		customize_leg = global.cosmetic_leg;
+		customize_hand = global.cosmetic_hand;
+		customize_scroll = 0;
+		customize_list_drag = false;
+		keyboard_string = "";
 		if (input_is_mobile_touch()) {
-			keyboard_virtual_show(kbv_type_default, kbv_returnkey_done, kbv_autocapitalize_words, false);
+			keyboard_virtual_hide();
 		}
 		break;
 	case 3:

@@ -25,6 +25,10 @@ client_ips = [];
 client_ports = [];
 client_player_ids = [];
 client_names = [];
+client_cos_head = [];
+client_cos_torso = [];
+client_cos_leg = [];
+client_cos_hand = [];
 next_player_id = 2;
 
 // LAN browser (client, pre-join)
@@ -43,6 +47,8 @@ match_frames_left = 0;
 lobby_roster = [];
 results = [];
 next_bullet_id = 1;
+next_weapon_pickup_id = 1;
+weapon_spawn_timer = WEAPON_SPAWN_FIRST_DELAY;
 match_end_resend_left = 0;
 match_end_resend_timer = 0;
 
@@ -70,10 +76,15 @@ if (is_host) {
 		joined = true;
 		status_text = "Hosting on port " + string(bound_port);
 		status_detail = "Lobby open";
+		cosmetics_ensure_globals();
 		array_push(lobby_roster, {
 			net_id: 1,
 			name: global.player_name,
-			is_host: true
+			is_host: true,
+			cosmetic_head: global.cosmetic_head,
+			cosmetic_torso: global.cosmetic_torso,
+			cosmetic_leg: global.cosmetic_leg,
+			cosmetic_hand: global.cosmetic_hand
 		});
 		beacon_cooldown = 0;
 	}

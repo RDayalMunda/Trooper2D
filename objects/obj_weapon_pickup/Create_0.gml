@@ -1,0 +1,11 @@
+weapon_id = WEAPON_NONE;
+mag = 0;
+reserve = 0;
+life = WEAPON_PICKUP_LIFE;
+spawn_point = noone;
+net_id = 0;
+is_ghost = false;
+net_seen = true;
+bob_phase = random(pi * 2);
+image_xscale = WEAPON_WORLD_SCALE;
+image_yscale = WEAPON_WORLD_SCALE;

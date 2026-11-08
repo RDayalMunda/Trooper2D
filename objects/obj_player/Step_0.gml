@@ -20,6 +20,15 @@ if (_client_match && !is_local) {
 		y = net_to_y;
 		aim_dir = net_aim_to;
 	}
+	// Approximate walk anim from snapshot motion.
+	var _rdx = abs(net_to_x - net_from_x);
+	if (_rdx > 1) {
+		walk_phase += TROOPER_WALK_ANIM_SPEED;
+		hsp = net_to_x - net_from_x; // for draw moving check
+	} else {
+		walk_phase = 0;
+		hsp = 0;
+	}
 	exit;
 }
 
@@ -49,10 +58,7 @@ if (!alive) {
 			fuel = fuel_max;
 			fuel_idle_timer = 0;
 			hp_idle_timer = 0;
-			ammo = ammo_max;
-			reloading = false;
-			reload_timer = 0;
-			shoot_cooldown = 0;
+			weapon_restore_loadout(id);
 			hurt_cooldown = hurt_cooldown_max;
 			alive = true;
 		}
@@ -93,6 +99,14 @@ if (array_length(_landed) > 0) {
 	vsp = 0;
 }
 
+// Walk cycle for layered legs
+var _walk_mag = max(abs(hsp) / max(0.001, move_speed), abs(move_x));
+if (_walk_mag > 0.2) {
+	walk_phase += TROOPER_WALK_ANIM_SPEED * clamp(_walk_mag, 0.2, 1.5);
+} else {
+	walk_phase = 0;
+}
+
 // Out of fight zone: host/offline drain HP fast (clients get auth via snapshot).
 if (!_client_match && alive && instance_number(obj_fight_zone) > 0) {
 	var _pcx = x + sprite_width * 0.5;
@@ -122,25 +136,31 @@ if (shoot_cooldown > 0) {
 if (reloading) {
 	reload_timer -= 1;
 	if (reload_timer <= 0) {
-		ammo = ammo_max;
-		reloading = false;
+		weapon_finish_reload(id);
 	}
 } else {
-	var _want_reload = input_reload || (ammo <= 0);
-	if (_want_reload && ammo < ammo_max) {
-		reloading = true;
-		reload_timer = reload_time;
+	var _want_reload = input_reload || (mag <= 0);
+	if (_want_reload) {
+		weapon_try_begin_reload(id);
 	}
 }
 
-if (input_shoot && !reloading && ammo > 0 && shoot_cooldown <= 0) {
+if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != WEAPON_NONE) {
 	var _cx = x + sprite_width * 0.5;
 	var _cy = y + sprite_height * 0.5;
+	var _spd = bullet_speed;
 	var _bullet = instance_create_layer(_cx, _cy, layer, obj_bullet);
-	_bullet.hsp = lengthdir_x(12, aim_dir);
-	_bullet.vsp = lengthdir_y(12, aim_dir);
+	_bullet.hsp = lengthdir_x(_spd, aim_dir);
+	_bullet.vsp = lengthdir_y(_spd, aim_dir);
+	_bullet.damage = bullet_damage;
 	_bullet.owner = id;
 	_bullet.owner_player_id = net_id;
+	_bullet.image_angle = aim_dir;
+
+	var _wdef = weapon_def(weapon_id);
+	if (_wdef != undefined) {
+		_bullet.sprite_index = _wdef.bullet_sprite;
+	}
 
 	if (_client_match) {
 		// Local muzzle flash only — host owns damage bullets.
@@ -164,14 +184,46 @@ if (input_shoot && !reloading && ammo > 0 && shoot_cooldown <= 0) {
 		}
 	}
 
-	ammo -= 1;
-	shoot_cooldown = shoot_cooldown_max;
+	mag -= 1;
+	shoot_cooldown = fire_cooldown_max;
 
-	if (ammo <= 0) {
-		reloading = true;
-		reload_timer = reload_time;
+	if (mag <= 0) {
+		weapon_try_begin_reload(id);
+	}
+}
+
+// Pickup prompt (local) + same-gun siphon / swap (host/offline).
+if (alive) {
+	if (is_local) {
+		weapon_update_local_prompt(id);
+		if (pickup_prompt_net_id > 0) {
+			var _pr = weapon_prompt_button_rect();
+			if (ui_pointer_pressed_in(_pr[0], _pr[1], _pr[2], _pr[3], true)) {
+				input_shoot = false;
+			}
+		}
+		if (weapon_local_prompt_pressed(id)) {
+			if (_client_match) {
+				net_client_send_want_pickup(pickup_prompt_net_id);
+			} else {
+				var _swap = weapon_pickup_find(pickup_prompt_net_id);
+				if (_swap == noone) {
+					_swap = weapon_pickup_find_near(id);
+				}
+				weapon_swap_with_pickup(id, _swap);
+			}
+		}
+	}
+
+	if (!_client_match) {
+		// Host/offline: auto ammo siphon for same gun (all players).
+		var _near = weapon_pickup_find_near(id);
+		if (_near != noone && !_near.is_ghost && _near.weapon_id == weapon_id) {
+			weapon_siphon_from_pickup(id, _near);
+		}
 	}
 }
 
 // One-shot reload must not stick on remote players.
 input_reload = false;
+input_want_pickup = false;

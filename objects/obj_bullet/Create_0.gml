@@ -1,5 +1,6 @@
 hsp = 0;
 vsp = 0;
+damage = 10;
 owner = noone;
 owner_player_id = 0;
 is_ghost = false;

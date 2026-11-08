@@ -2,13 +2,10 @@ if (!alive) {
 	exit;
 }
 
-draw_self();
-
 var _cx = x + sprite_width * 0.5;
-var _cy = y + sprite_height * 0.5;
+var _cy = y + sprite_height * 0.55;
 
-// Aim gun from aim_dir only. Never retarget from mouse on mobile
-// (mouse follows any finger and was stealing aim from the left stick).
+// Aim from aim_dir; desktop mouse can refresh when right stick is not aiming.
 var _dir = aim_dir;
 if (is_local && !input_is_mobile_touch()) {
 	if (!(instance_exists(obj_touch_controls) && obj_touch_controls.right_active)) {
@@ -16,7 +13,24 @@ if (is_local && !input_is_mobile_touch()) {
 		aim_dir = _dir;
 	}
 }
-draw_line(_cx, _cy, _cx + lengthdir_x(24, _dir), _cy + lengthdir_y(24, _dir));
+
+var _moving = (abs(hsp) > 0.35 || abs(move_x) > 0.25);
+var _wdef = weapon_def(weapon_id);
+var _wspr = (_wdef != undefined) ? _wdef.sprite : -1;
+draw_trooper(
+	_cx,
+	_cy,
+	cosmetic_head,
+	cosmetic_torso,
+	cosmetic_leg,
+	cosmetic_hand,
+	aim_dir,
+	trooper_scale,
+	walk_phase,
+	_moving,
+	image_blend,
+	_wspr
+);
 
 draw_set_halign(fa_center);
 draw_set_valign(fa_bottom);

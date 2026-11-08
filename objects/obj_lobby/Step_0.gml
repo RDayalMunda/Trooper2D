@@ -74,16 +74,25 @@ var _rows = menu_rows;
 var _count = array_length(_rows);
 
 if (_net.is_host) {
+	cosmetics_ensure_globals();
 	_net.lobby_roster = [{
 		net_id: 1,
 		name: global.player_name,
-		is_host: true
+		is_host: true,
+		cosmetic_head: global.cosmetic_head,
+		cosmetic_torso: global.cosmetic_torso,
+		cosmetic_leg: global.cosmetic_leg,
+		cosmetic_hand: global.cosmetic_hand
 	}];
 	for (var _i = 0; _i < array_length(_net.client_player_ids); _i++) {
 		array_push(_net.lobby_roster, {
 			net_id: _net.client_player_ids[_i],
 			name: _net.client_names[_i],
-			is_host: false
+			is_host: false,
+			cosmetic_head: _net.client_cos_head[_i],
+			cosmetic_torso: _net.client_cos_torso[_i],
+			cosmetic_leg: _net.client_cos_leg[_i],
+			cosmetic_hand: _net.client_cos_hand[_i]
 		});
 	}
 }

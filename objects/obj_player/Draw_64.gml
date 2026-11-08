@@ -41,11 +41,12 @@ draw_rectangle(_bar_x, _fuel_y, _bar_x + _fuel_fill, _fuel_y + _bar_h, false);
 draw_set_color(c_white);
 draw_rectangle(_bar_x, _fuel_y, _bar_x + _bar_w, _fuel_y + _bar_h, true);
 
+var _gun_name = weapon_name(weapon_id);
 var _ammo_text;
 if (reloading) {
-	_ammo_text = "Ammo: RELOADING...";
+	_ammo_text = _gun_name + ": RELOADING...";
 } else {
-	_ammo_text = "Ammo: " + string(ammo) + " / " + string(ammo_max);
+	_ammo_text = _gun_name + ": " + string(mag) + " / " + string(reserve);
 }
 draw_text(_hud_x, _fuel_y + 24, _ammo_text);
 
@@ -56,6 +57,16 @@ if (!alive) {
 	draw_set_valign(fa_middle);
 	draw_set_color(c_white);
 	draw_text(display_get_gui_width() * 0.5, display_get_gui_height() * 0.5, "Respawning...");
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+} else if (pickup_prompt_net_id > 0 && pickup_prompt_name != "") {
+	var _br = weapon_prompt_button_rect();
+	var _label = "Pick up " + pickup_prompt_name;
+	draw_ui_button(_br[0], _br[1], _br[2], _br[3], _label, true);
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_top);
+	draw_set_color(c_ltgray);
+	draw_text_transformed((_br[0] + _br[2]) * 0.5, _br[3] + round(6 * _s), "E / tap", ui_text_scale() * 0.75, ui_text_scale() * 0.75, 0);
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 }

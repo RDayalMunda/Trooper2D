@@ -294,6 +294,28 @@ function weapon_pickup_drop(_x, _y, _weapon_id, _mag, _reserve) {
 	return _pickup;
 }
 
+/// @function weapon_drop_on_death(_player)
+/// @description Host/offline: leave the held gun on the ground for others to pick up.
+function weapon_drop_on_death(_player) {
+	if (!instance_exists(_player)) {
+		return noone;
+	}
+	if (instance_exists(obj_net) && obj_net.is_client) {
+		return noone;
+	}
+	var _wid = _player.weapon_id;
+	if (_wid == WEAPON_NONE) {
+		return noone;
+	}
+
+	var _c = weapon_player_center(_player);
+	var _pickup = weapon_pickup_drop(_c[0], _c[1], _wid, _player.mag, _player.reserve);
+	weapon_apply(_player, WEAPON_NONE);
+	_player.reloading = false;
+	_player.reload_timer = 0;
+	return _pickup;
+}
+
 /// @function weapon_player_center(_player)
 function weapon_player_center(_player) {
 	return [

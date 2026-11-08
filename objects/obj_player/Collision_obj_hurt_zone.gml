@@ -21,6 +21,5 @@ if (hp <= 0) {
 	hit_bar_timer = 0;
 	hsp = 0;
 	vsp = 0;
-	reloading = false;
-	reload_timer = 0;
+	weapon_drop_on_death(id);
 }

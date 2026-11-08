@@ -28,8 +28,7 @@ if (other.hp <= 0) {
 	other.hit_bar_timer = 0;
 	other.hsp = 0;
 	other.vsp = 0;
-	other.reloading = false;
-	other.reload_timer = 0;
+	weapon_drop_on_death(other);
 
 	var _owner = net_find_player(owner_player_id);
 	var _killer_name = "Unknown";

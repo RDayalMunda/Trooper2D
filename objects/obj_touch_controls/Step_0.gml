@@ -1,11 +1,23 @@
-if (!instance_exists(obj_net) || obj_net.phase != "match") {
+if (!instance_exists(obj_net) || obj_net.phase != "match" || match_is_paused()) {
+	// Fully release stick claims — leaving left_device/right_device set blocks that
+	// finger from being re-assigned after Resume (skipped as "already claimed").
 	left_active = false;
 	right_active = false;
+	left_device = -1;
+	right_device = -1;
+	left_nx = 0;
+	left_ny = 0;
+	right_nx = 0;
+	right_ny = 0;
+	right_mag = 0;
 	shooting = false;
-reload_pressed = false;
-nade_pressed = false;
-zoom_pressed = false;
-exit;
+	reload_pressed = false;
+	nade_pressed = false;
+	zoom_pressed = false;
+	reload_down = false;
+	nade_down = false;
+	zoom_down = false;
+	exit;
 }
 
 gui_w = display_get_gui_width();

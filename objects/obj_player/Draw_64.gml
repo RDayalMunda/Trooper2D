@@ -1,4 +1,4 @@
-if (!is_local) {
+if (!is_local || match_is_paused()) {
 	exit;
 }
 

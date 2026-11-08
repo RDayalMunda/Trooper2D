@@ -60,30 +60,12 @@ if (is_host) {
 		}
 
 		if (match_frames_left <= 0) {
+			match_paused = false;
 			net_end_match();
 		}
 
-		var _exit = match_hud_exit_rect();
-		if (ui_pointer_pressed_in(_exit[0], _exit[1], _exit[2], _exit[3], true)) {
-			net_leave_match_to_menu();
-			exit;
-		}
-
-		if (match_back_timer > 0) {
-			match_back_timer -= 1;
-			if (match_back_timer <= 0) {
-				match_back_armed = false;
-			}
-		}
-		if (ui_back_pressed()) {
-			if (match_back_armed) {
-				net_leave_match_to_menu();
-				exit;
-			}
-			match_back_armed = true;
-			match_back_timer = 120;
-			status_detail = "Back again to leave match";
-		}
+		// Pause overlay (scoreboard); Exit is inside the overlay, not the top bar.
+		match_pause_handle_input();
 	} else if (phase == "results") {
 		status_text = "Match over";
 		status_detail = "Return to lobby or menu";
@@ -140,35 +122,17 @@ if (is_host) {
 		}
 	} else if (phase == "match") {
 		killfeed_tick();
-		net_client_send_input();
 
 		host_silent_frames += 1;
 		if (host_silent_frames >= NET_HOST_TIMEOUT_FRAMES) {
+			match_paused = false;
 			net_leave_match_to_menu("Host left the match");
 			exit;
 		}
 
-		var _exit_c = match_hud_exit_rect();
-		if (ui_pointer_pressed_in(_exit_c[0], _exit_c[1], _exit_c[2], _exit_c[3], true)) {
-			net_leave_match_to_menu();
-			exit;
-		}
-
-		if (match_back_timer > 0) {
-			match_back_timer -= 1;
-			if (match_back_timer <= 0) {
-				match_back_armed = false;
-			}
-		}
-		if (ui_back_pressed()) {
-			if (match_back_armed) {
-				net_leave_match_to_menu();
-				exit;
-			}
-			match_back_armed = true;
-			match_back_timer = 120;
-			status_detail = "Back again to leave match";
-		}
+		// Pause overlay swallows Escape / taps; gather zeros combat input while open.
+		match_pause_handle_input();
+		net_client_send_input();
 	} else if (phase == "results") {
 		status_detail = "Waiting for host...";
 		var _client_menu = ui_back_pressed();

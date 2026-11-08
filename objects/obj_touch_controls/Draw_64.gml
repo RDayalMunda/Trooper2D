@@ -1,4 +1,4 @@
-if (!instance_exists(obj_net) || obj_net.phase != "match") {
+if (!instance_exists(obj_net) || obj_net.phase != "match" || match_is_paused()) {
 	exit;
 }
 

@@ -67,10 +67,13 @@ if (phase == "match") {
 	draw_set_color(c_white);
 	draw_text_transformed((_map[0] + _map[2]) * 0.5, (_map[1] + _map[3]) * 0.5, _map_text, _ts * 0.9, _ts * 0.9, 0);
 
-	var _exit = match_hud_exit_rect();
-	draw_ui_button(_exit[0], _exit[1], _exit[2], _exit[3], "Exit", false, _ts * 0.85);
+	var _pause = match_hud_pause_rect();
+	draw_ui_button(_pause[0], _pause[1], _pause[2], _pause[3], "Pause", false, _ts * 0.85);
 
 	killfeed_draw();
+
+	// Drawn last so the overlay sits above HUD / touch controls.
+	match_pause_draw_overlay();
 
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);

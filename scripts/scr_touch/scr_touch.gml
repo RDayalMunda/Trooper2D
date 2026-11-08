@@ -72,15 +72,46 @@ function match_hud_map_rect() {
 	return [_x1, _z[1], _x2, _z[3]];
 }
 
-/// @function match_hud_exit_rect()
-/// @description Exit Match button sits just left of the map panel.
-function match_hud_exit_rect() {
+/// @function match_hud_pause_rect()
+/// @description Pause / scoreboard button sits just left of the map panel.
+function match_hud_pause_rect() {
 	var _m = match_hud_map_rect();
 	var _s = ui_scale();
 	var _w = round(76 * _s);
 	var _x2 = _m[0] - 8;
 	var _x1 = _x2 - _w;
 	return [_x1, _m[1], _x2, _m[3]];
+}
+
+/// @function match_pause_resume_rect()
+/// @description Left button on the pause overlay.
+function match_pause_resume_rect() {
+	var _gw = display_get_gui_width();
+	var _gh = display_get_gui_height();
+	var _s = ui_scale();
+	var _bw = round(280 * _s);
+	var _bh = round(64 * _s);
+	var _y1 = _gh - round(110 * _s);
+	var _x1 = _gw * 0.5 - _bw - 12;
+	return [_x1, _y1, _x1 + _bw, _y1 + _bh];
+}
+
+/// @function match_pause_exit_rect()
+/// @description Right button on the pause overlay (leave match → main menu).
+function match_pause_exit_rect() {
+	var _gw = display_get_gui_width();
+	var _gh = display_get_gui_height();
+	var _s = ui_scale();
+	var _bw = round(280 * _s);
+	var _bh = round(64 * _s);
+	var _y1 = _gh - round(110 * _s);
+	var _x1 = _gw * 0.5 + 12;
+	return [_x1, _y1, _x1 + _bw, _y1 + _bh];
+}
+
+/// @function match_is_paused()
+function match_is_paused() {
+	return instance_exists(obj_net) && obj_net.phase == "match" && obj_net.match_paused;
 }
 
 /// @function ui_pointer_pressed_in(_x1, _y1, _x2, _y2, _use_gui)

@@ -65,6 +65,7 @@ results_btn_menu = [0, 0, 0, 0];
 results_btn_menu_only = [0, 0, 0, 0];
 match_back_armed = false;
 match_back_timer = 0;
+match_paused = false; // local-only overlay (scoreboard); does not freeze the match
 host_silent_frames = 0; // client: frames since last host snapshot
 
 if (is_host) {

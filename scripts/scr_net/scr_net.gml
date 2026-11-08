@@ -326,6 +326,11 @@ function player_gather_input(_player) {
 	_player.input_reload = false;
 	_player.input_throw_nade = false;
 
+	// Pause overlay is local-only UI — block combat input while it's open.
+	if (match_is_paused()) {
+		return;
+	}
+
 	if (!_mobile) {
 		var _kx = 0;
 		var _ky = 0;
@@ -920,6 +925,103 @@ function net_collect_results() {
 	return _results;
 }
 
+/// @function match_pause_draw_overlay()
+/// @description Full-screen translucent pause UI: live scoreboard + Resume / Exit.
+/// Does NOT freeze simulation — only blocks local controls/UI while open.
+function match_pause_draw_overlay() {
+	if (!instance_exists(obj_net) || !obj_net.match_paused) {
+		return;
+	}
+
+	var _gw = display_get_gui_width();
+	var _gh = display_get_gui_height();
+	var _s = ui_scale();
+	var _ts = ui_text_scale();
+	var _board = net_collect_results();
+	var _local_id = obj_net.local_player_id;
+
+	// Dim everything underneath so sticks / HUD can't be used.
+	var _old_a = draw_get_alpha();
+	draw_set_alpha(0.72);
+	draw_set_color(c_black);
+	draw_rectangle(0, 0, _gw, _gh, false);
+	draw_set_alpha(_old_a);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+	draw_text_transformed(_gw * 0.5, round(48 * _s), "SCOREBOARD", _ts * 1.15, _ts * 1.15, 0);
+	draw_set_color(c_ltgray);
+	draw_text_transformed(
+		_gw * 0.5,
+		round(88 * _s),
+		obj_net.lobby_name + "  |  " + arena_name_from_index(obj_net.map_index),
+		_ts * 0.9,
+		_ts * 0.9,
+		0
+	);
+
+	var _y = round(130 * _s);
+	draw_set_halign(fa_left);
+	draw_set_color(c_ltgray);
+	draw_text_transformed(_gw * 0.5 - 200, _y, "PLAYER", _ts * 0.9, _ts * 0.9, 0);
+	draw_text_transformed(_gw * 0.5 + 40, _y, "KILLS", _ts * 0.9, _ts * 0.9, 0);
+	draw_text_transformed(_gw * 0.5 + 140, _y, "DEATHS", _ts * 0.9, _ts * 0.9, 0);
+	_y += round(36 * _s);
+
+	for (var _i = 0; _i < array_length(_board); _i++) {
+		var _row = _board[_i];
+		var _is_you = (_row.net_id == _local_id && _local_id > 0);
+		draw_set_color(_is_you ? c_lime : ((_i == 0) ? c_yellow : c_white));
+		draw_text_transformed(_gw * 0.5 - 200, _y, string(_i + 1) + ". " + _row.name, _ts, _ts, 0);
+		draw_text_transformed(_gw * 0.5 + 40, _y, string(_row.kills), _ts, _ts, 0);
+		draw_text_transformed(_gw * 0.5 + 140, _y, string(_row.deaths), _ts, _ts, 0);
+		_y += round(34 * _s);
+	}
+
+	var _resume = match_pause_resume_rect();
+	var _exit = match_pause_exit_rect();
+	draw_ui_button(_resume[0], _resume[1], _resume[2], _resume[3], "Resume", false);
+	draw_ui_button(_exit[0], _exit[1], _exit[2], _exit[3], "Exit", false);
+
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+}
+
+/// @function match_pause_handle_input()
+/// @description Open/close pause overlay; Exit leaves to main menu. Returns true if handled.
+function match_pause_handle_input() {
+	if (!instance_exists(obj_net) || obj_net.phase != "match") {
+		return false;
+	}
+
+	if (obj_net.match_paused) {
+		var _resume = match_pause_resume_rect();
+		var _exit = match_pause_exit_rect();
+		if (ui_pointer_pressed_in(_resume[0], _resume[1], _resume[2], _resume[3], true)
+			|| ui_back_pressed()) {
+			obj_net.match_paused = false;
+			return true;
+		}
+		if (ui_pointer_pressed_in(_exit[0], _exit[1], _exit[2], _exit[3], true)) {
+			obj_net.match_paused = false;
+			net_leave_match_to_menu();
+			return true;
+		}
+		// Swallow other UI while the overlay is up.
+		return true;
+	}
+
+	var _pause = match_hud_pause_rect();
+	if (ui_pointer_pressed_in(_pause[0], _pause[1], _pause[2], _pause[3], true)
+		|| ui_back_pressed()) {
+		obj_net.match_paused = true;
+		return true;
+	}
+	return false;
+}
+
 /// @function net_begin_match()
 function net_begin_match() {
 	with (obj_net) {
@@ -927,6 +1029,7 @@ function net_begin_match() {
 		match_frames_left = match_time_sec * 60;
 		results = [];
 		kill_feed = [];
+		match_paused = false;
 		next_bullet_id = 1;
 		next_grenade_id = 1;
 		next_weapon_pickup_id = 1;
@@ -959,6 +1062,7 @@ function net_end_match() {
 		}
 		results = net_collect_results();
 		phase = "results";
+		match_paused = false;
 		match_end_resend_left = NET_MATCH_END_RESENDS;
 		match_end_resend_timer = NET_MATCH_END_INTERVAL;
 		net_host_send_match_end();
@@ -1346,6 +1450,7 @@ function net_client_apply_match_end(_buffer) {
 
 		results = _parsed;
 		phase = "results";
+		match_paused = false;
 		status_text = "Match over";
 		status_detail = "Waiting for host...";
 		with (obj_player) {
@@ -1414,6 +1519,7 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		obj_net.match_frames_left = obj_net.match_time_sec * 60;
 		obj_net.results = [];
 		obj_net.kill_feed = [];
+		obj_net.match_paused = false;
 		obj_net.host_silent_frames = 0;
 		with (obj_player) {
 			instance_destroy();

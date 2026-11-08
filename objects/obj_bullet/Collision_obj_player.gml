@@ -1,3 +1,4 @@
+// Ghost / predicted client bullets never deal damage — host owns hits.
 if (is_ghost) {
 	exit;
 }
@@ -6,18 +7,23 @@ if (!other.alive) {
 	exit;
 }
 
+// No friendly fire against the shooter.
 if (other.net_id == owner_player_id) {
 	exit;
 }
 
-if (other.hurt_cooldown > 0) {
-	instance_destroy();
-	exit;
-}
-
+// ---------------------------------------------------------------------------
+// Per-projectile damage (no victim i-frames for bullets)
+// ---------------------------------------------------------------------------
+// Each bullet that collides deals its full damage once, then is destroyed.
+// We intentionally do NOT check / set hazard_cooldown here:
+//   - Rapid fire (UZI) must register every round for the attacker.
+//   - Two players shooting the same target must both deal damage.
+// Hazard DoT (lava / void) uses hazard_cooldown separately on the player.
+// Balance weapon DPS via damage + fire_cooldown + mag — not immunity frames.
+// ---------------------------------------------------------------------------
 other.hp -= damage;
-other.hurt_cooldown = other.hurt_cooldown_max;
-other.hp_idle_timer = 0;
+other.hp_idle_timer = 0; // pause HP regen after any combat hit
 other.hit_bar_timer = PLAYER_HIT_BAR_TIME;
 
 if (other.hp <= 0) {

@@ -2,12 +2,13 @@ if (instance_exists(obj_net) && (obj_net.is_client || obj_net.phase != "match"))
 	exit;
 }
 
-if (!alive || hurt_cooldown > 0) {
+// Hazard DoT tick only — does not make the player immune to bullets.
+if (!alive || hazard_cooldown > 0) {
 	exit;
 }
 
 hp -= hurt_zone_damage;
-hurt_cooldown = hurt_cooldown_max;
+hazard_cooldown = hazard_cooldown_max;
 hp_idle_timer = 0;
 if (!is_local) {
 	hit_bar_timer = PLAYER_HIT_BAR_TIME;

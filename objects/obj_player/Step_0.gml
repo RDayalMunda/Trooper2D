@@ -37,10 +37,12 @@ if (_client_match && !is_local) {
 	exit;
 }
 
-if (hurt_cooldown > 0) {
-	hurt_cooldown -= 1;
-	hp_idle_timer = 0;
-} else if (alive && hp < hp_max) {
+// Tick hazard DoT interval only (hurt zone / void). Bullets ignore this.
+if (hazard_cooldown > 0) {
+	hazard_cooldown -= 1;
+}
+
+if (alive && hp < hp_max) {
 	hp_idle_timer += 1;
 	if (hp_idle_timer >= hp_regen_delay) {
 		hp = min(hp_max, hp + hp_regen);
@@ -65,7 +67,9 @@ if (!alive) {
 			hp_idle_timer = 0;
 			hit_bar_timer = 0;
 			weapon_restore_loadout(id);
-			hurt_cooldown = hurt_cooldown_max;
+			// Brief hazard immunity on spawn so you don't instantly re-tick lava/void.
+			// Bullets are unaffected (no combat i-frames).
+			hazard_cooldown = hazard_cooldown_max;
 			alive = true;
 		}
 	}
@@ -117,9 +121,9 @@ if (_walk_mag > 0.15) {
 if (!_client_match && alive && instance_number(obj_fight_zone) > 0) {
 	var _pcx = x + sprite_width * 0.5;
 	var _pcy = y + sprite_height * 0.5;
-	if (!fight_zone_contains_point(_pcx, _pcy) && hurt_cooldown <= 0) {
+	if (!fight_zone_contains_point(_pcx, _pcy) && hazard_cooldown <= 0) {
 		hp -= void_out_damage;
-		hurt_cooldown = void_out_interval;
+		hazard_cooldown = void_out_interval;
 		hp_idle_timer = 0;
 		if (!is_local) {
 			hit_bar_timer = PLAYER_HIT_BAR_TIME;

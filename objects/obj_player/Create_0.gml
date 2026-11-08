@@ -26,13 +26,19 @@ spawn_x = x;
 spawn_y = y;
 respawn_timer = 0;
 respawn_time = 90;
-hurt_cooldown = 0;
-hurt_cooldown_max = 30;
+// ---------------------------------------------------------------------------
+// Hazard tick cooldown (hurt zones / void) — NOT bullet invulnerability.
+// Bullets always apply damage on collision (see obj_bullet Collision_obj_player).
+// A shared "hurt_cooldown" used to block ALL damage and made UZI / multi-attacker
+// fire feel broken (only first bullet counted). Keep that separate forever.
+// ---------------------------------------------------------------------------
+hazard_cooldown = 0;
+hazard_cooldown_max = 30; // hurt-zone tick interval (~0.5s)
 hit_bar_timer = 0; // show floating HP when recently damaged (others only)
 hurt_zone_damage = 25;
 // Outside obj_fight_zone — harder than hurt zones.
 void_out_damage = 45;
-void_out_interval = 15;
+void_out_interval = 15; // void tick interval; uses hazard_cooldown too
 
 weapon_id = WEAPON_NONE;
 mag = 0;

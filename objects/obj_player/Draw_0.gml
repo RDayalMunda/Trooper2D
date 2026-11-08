@@ -30,7 +30,8 @@ draw_trooper(
 	walk_phase,
 	_moving,
 	c_white,
-	_wspr
+	_wspr,
+	weapon_id
 );
 
 draw_set_halign(fa_center);

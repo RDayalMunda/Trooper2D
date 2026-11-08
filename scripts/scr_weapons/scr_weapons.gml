@@ -5,8 +5,8 @@
 #macro WEAPON_SPAWN_INTERVAL 3600 // 60s between world drops
 #macro WEAPON_SPAWN_FIRST_DELAY 180 // first drop ~3s into match
 #macro WEAPON_PICKUP_LIFE 1800 // 30s on the ground
-#macro WEAPON_WORLD_SCALE 0.10
-#macro BULLET_DRAW_SCALE 0.12
+#macro WEAPON_WORLD_SCALE 0.08
+#macro BULLET_DRAW_SCALE 0.10
 #macro WEAPON_PICKUP_RADIUS 56
 #macro WEAPON_PICKUP_GRAV 0.45
 #macro WEAPON_PICKUP_MAX_FALL 10
@@ -24,11 +24,14 @@ function weapon_def(_weapon_id) {
 				bullet_sprite: spr_weapon_m9_bullet,
 				mag_size: 12,
 				reserve_max: 36,
-				fire_cooldown: 14,
+				fire_cooldown: 20,
 				reload_time: 70,
 				bullet_speed: 13,
 				damage: 14,
-				zoom_levels: [1] // pistol: closest only
+				zoom_levels: [1], // pistol: closest only
+				// Hand vs nozzle origin (sprite px, art faces right: -x = toward grip).
+				hand_ox: -130,
+				hand_oy: 40
 			};
 		case WEAPON_UZI:
 			return {
@@ -42,7 +45,10 @@ function weapon_def(_weapon_id) {
 				reload_time: 85,
 				bullet_speed: 12,
 				damage: 9,
-				zoom_levels: [1, 2] // SMG unlocks 2x
+				zoom_levels: [1, 2], // SMG unlocks 2x
+				// Grip sits left + down from nozzle when facing right.
+				hand_ox: -110,
+				hand_oy: 32
 			};
 	}
 	return undefined;

@@ -1,8 +1,8 @@
 #macro CAM_VIEW_INDEX 0
 /// World coverage vs a "fit whole room" view. Lower = more zoomed in.
-#macro CAM_ZOOM_1_COVERAGE 0.38
-/// 2x sits between 1x and a full 2× pullback (was 0.76).
-#macro CAM_ZOOM_2_COVERAGE 0.55
+#macro CAM_ZOOM_1_COVERAGE 0.32
+/// 2x sits between 1x and a wider pullback.
+#macro CAM_ZOOM_2_COVERAGE 0.48
 #macro CAM_FOLLOW_LERP 0.22
 
 /// @function cam_default_zoom_levels()

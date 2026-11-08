@@ -147,10 +147,12 @@ if (reloading) {
 }
 
 if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != WEAPON_NONE) {
+	// Match Draw_0 body center so muzzle lines up with the drawn nozzle origin.
 	var _cx = x + sprite_width * 0.5;
-	var _cy = y + sprite_height * 0.5;
+	var _cy = y + sprite_height * 0.55;
+	var _muzzle = trooper_muzzle_pos(_cx, _cy, aim_dir, trooper_scale);
 	var _spd = bullet_speed;
-	var _bullet = instance_create_layer(_cx, _cy, layer, obj_bullet);
+	var _bullet = instance_create_layer(_muzzle[0], _muzzle[1], layer, obj_bullet);
 	_bullet.hsp = lengthdir_x(_spd, aim_dir);
 	_bullet.vsp = lengthdir_y(_spd, aim_dir);
 	_bullet.damage = bullet_damage;

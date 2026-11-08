@@ -107,22 +107,48 @@ function cosmetics_save(_head, _torso, _leg, _hand) {
 	ini_close();
 }
 
-#macro TROOPER_PREVIEW_SCALE 0.20
-#macro TROOPER_MATCH_SCALE 0.09
+#macro TROOPER_PREVIEW_SCALE 0.18
+#macro TROOPER_MATCH_SCALE 0.07
 /// Radians of walk cycle per frame at full move_speed.
 #macro TROOPER_WALK_CYCLE_RATE 0.35
 /// Hip height below torso origin (sprite units * scale). Peek under torso.
-#macro TROOPER_LEG_BASE_Y 78
+#macro TROOPER_LEG_BASE_Y 132
 /// Resting half-stance width (sprite units * scale).
 #macro TROOPER_LEG_HIP 22
 /// Forward/back stride amplitude while moving.
 #macro TROOPER_LEG_STRIDE 48
 /// Small step lift while moving.
 #macro TROOPER_LEG_LIFT 10
+/// World px from body center to gun nozzle (sprite origin = muzzle).
+#macro TROOPER_GUN_REACH_PX 21
 
-/// @function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir, _scale, _walk_phase, _moving, _blend, _weapon_sprite)
+/// @function trooper_muzzle_pos(_body_x, _body_y, _aim_dir, _scale)
+/// @description World position of the gun nozzle (draw origin).
+function trooper_muzzle_pos(_body_x, _body_y, _aim_dir, _scale = TROOPER_MATCH_SCALE) {
+	var _reach = TROOPER_GUN_REACH_PX;
+	return [
+		_body_x + lengthdir_x(_reach, _aim_dir),
+		_body_y + lengthdir_y(_reach, _aim_dir)
+	];
+}
+
+/// @function trooper_hand_pos(_muzzle_x, _muzzle_y, _aim_dir, _scale, _hand_ox, _hand_oy, _face_left)
+/// @description Hand grip from nozzle origin using per-gun sprite-local offset.
+function trooper_hand_pos(_muzzle_x, _muzzle_y, _aim_dir, _scale, _hand_ox, _hand_oy, _face_left) {
+	var _sabs = abs(_scale);
+	var _gun_xs = _sabs;
+	var _gun_ys = _face_left ? -_sabs : _sabs;
+	var _lx = _hand_ox * _gun_xs;
+	var _ly = _hand_oy * _gun_ys;
+	return [
+		_muzzle_x + lengthdir_x(_lx, _aim_dir) + lengthdir_x(_ly, _aim_dir - 90),
+		_muzzle_y + lengthdir_y(_lx, _aim_dir) + lengthdir_y(_ly, _aim_dir - 90)
+	];
+}
+
+/// @function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir, _scale, _walk_phase, _moving, _blend, _weapon_sprite, _weapon_id)
 /// @description Match/preview body. Order: legs → torso → head → gun → hand. Art faces right.
-function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir = 0, _scale = TROOPER_MATCH_SCALE, _walk_phase = 0, _moving = false, _blend = c_white, _weapon_sprite = -1) {
+function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir = 0, _scale = TROOPER_MATCH_SCALE, _walk_phase = 0, _moving = false, _blend = c_white, _weapon_sprite = -1, _weapon_id = WEAPON_NONE) {
 	var _face_left = (lengthdir_x(1, _aim_dir) < 0);
 	var _xscale = _face_left ? -_scale : _scale;
 	var _yscale = _scale;
@@ -168,17 +194,25 @@ function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir = 0, _scale =
 		draw_sprite_ext(_head_spr, 0, _x, _y, _xscale, _yscale, 0, _blend, 1);
 	}
 
-	var _reach = max(14, 95 * abs(_scale));
-	var _hx = _x + lengthdir_x(_reach, _aim_dir);
-	var _hy = _y + lengthdir_y(_reach, _aim_dir);
+	// Gun origin = nozzle; hand uses per-weapon offset from that origin.
+	var _muzzle = trooper_muzzle_pos(_x, _y, _aim_dir, _scale);
+	var _gx = _muzzle[0];
+	var _gy = _muzzle[1];
 
 	if (_weapon_sprite != -1) {
-		draw_sprite_ext(_weapon_sprite, 0, _hx, _hy, _gun_xs, _gun_ys, _gun_ang, _blend, 1);
+		draw_sprite_ext(_weapon_sprite, 0, _gx, _gy, _gun_xs, _gun_ys, _gun_ang, _blend, 1);
 	}
 
-	// Hand grip on top of gun.
 	if (_hand_spr != -1) {
-		draw_sprite_ext(_hand_spr, 0, _hx, _hy, _gun_xs, _gun_ys, _gun_ang, _blend, 1);
+		var _hox = -80;
+		var _hoy = 22;
+		var _wdef = weapon_def(_weapon_id);
+		if (_wdef != undefined) {
+			_hox = _wdef.hand_ox;
+			_hoy = _wdef.hand_oy;
+		}
+		var _hp = trooper_hand_pos(_gx, _gy, _aim_dir, _scale, _hox, _hoy, _face_left);
+		draw_sprite_ext(_hand_spr, 0, _hp[0], _hp[1], _gun_xs, _gun_ys, _gun_ang, _blend, 1);
 	}
 }
 

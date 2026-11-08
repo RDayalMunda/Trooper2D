@@ -16,10 +16,13 @@
 #macro NET_MSG_DISCOVER 12
 #macro NET_MSG_BEACON 13
 #macro NET_MSG_WANT_PICKUP 14
+#macro NET_MSG_LEAVE 15
 
 #macro NET_REJECT_FULL 1
 #macro NET_REJECT_IN_MATCH 2
 #macro NET_DISCOVER_STALE_FRAMES 180
+#macro NET_CLIENT_TIMEOUT_FRAMES 180 // drop silent lobby clients (~3s)
+#macro NET_CLIENT_KEEPALIVE_FRAMES 45
 #macro NET_NAME_BYTES 16
 #macro NET_BULLET_MAX 48
 #macro NET_SNAP_HARD 96
@@ -292,6 +295,7 @@ function net_host_add_client(_ip, _port, _display_name, _cosmetics = undefined) 
 		obj_net.client_cos_torso[_existing] = _cosmetics[1];
 		obj_net.client_cos_leg[_existing] = _cosmetics[2];
 		obj_net.client_cos_hand[_existing] = _cosmetics[3];
+		obj_net.client_silent_frames[_existing] = 0;
 		return obj_net.client_player_ids[_existing];
 	}
 
@@ -315,6 +319,7 @@ function net_host_add_client(_ip, _port, _display_name, _cosmetics = undefined) 
 	array_push(obj_net.client_cos_torso, _cosmetics[1]);
 	array_push(obj_net.client_cos_leg, _cosmetics[2]);
 	array_push(obj_net.client_cos_hand, _cosmetics[3]);
+	array_push(obj_net.client_silent_frames, 0);
 
 	obj_net.status_text = "Hosting on port " + string(obj_net.bound_port);
 	obj_net.status_detail = _name + " joined lobby";
@@ -340,7 +345,66 @@ function net_host_remove_client_index(_index) {
 		array_delete(client_cos_torso, _index, 1);
 		array_delete(client_cos_leg, _index, 1);
 		array_delete(client_cos_hand, _index, 1);
+		if (array_length(client_silent_frames) > _index) {
+			array_delete(client_silent_frames, _index, 1);
+		}
 	}
+}
+
+/// @function net_host_touch_client(_ip, _port)
+/// @description Reset lobby timeout for a known client.
+function net_host_touch_client(_ip, _port) {
+	var _index = net_host_find_client(_ip, _port);
+	if (_index < 0) {
+		return;
+	}
+	obj_net.client_silent_frames[_index] = 0;
+}
+
+/// @function net_host_prune_silent_clients()
+/// @description Drop lobby clients that stopped sending keepalives.
+function net_host_prune_silent_clients() {
+	if (!instance_exists(obj_net) || !obj_net.is_host || obj_net.phase != "lobby") {
+		return;
+	}
+
+	var _changed = false;
+	with (obj_net) {
+		for (var _i = array_length(client_silent_frames) - 1; _i >= 0; _i--) {
+			client_silent_frames[_i] += 1;
+			if (client_silent_frames[_i] >= NET_CLIENT_TIMEOUT_FRAMES) {
+				status_detail = client_names[_i] + " left lobby";
+				net_host_remove_client_index(_i);
+				_changed = true;
+			}
+		}
+	}
+	if (_changed) {
+		net_host_send_lobby_state();
+	}
+}
+
+/// @function net_client_send_leave()
+function net_client_send_leave() {
+	with (obj_net) {
+		if (!is_client || !joined || socket < 0 || host_ip == "") {
+			return;
+		}
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_LEAVE);
+		buffer_write(send_buffer, buffer_u8, local_player_id);
+		network_send_udp(socket, host_ip, host_port, send_buffer, buffer_tell(send_buffer));
+	}
+}
+
+/// @function net_client_leave_to_menu()
+/// @description Tell host we left, then tear down net and return to menu.
+function net_client_leave_to_menu() {
+	net_client_send_leave();
+	global.net_mode = "offline";
+	global.menu_message = "";
+	net_shutdown();
+	room_goto(room_main_menu);
 }
 
 /// @function net_host_kick_player(_player_id)
@@ -813,6 +877,7 @@ function net_host_send_snapshots() {
 		with (obj_bullet) {
 			if (!is_ghost && net_id > 0 && _bullet_count < NET_BULLET_MAX) {
 				buffer_write(other.send_buffer, buffer_u16, net_id);
+				buffer_write(other.send_buffer, buffer_u8, weapon_id);
 				buffer_write(other.send_buffer, buffer_f32, x);
 				buffer_write(other.send_buffer, buffer_f32, y);
 				buffer_write(other.send_buffer, buffer_f32, hsp);
@@ -872,7 +937,25 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		if (_pid < 0) {
 			return;
 		}
+		net_host_touch_client(_ip, _port);
 		net_host_send_welcome(_ip, _port, _pid);
+		net_host_send_lobby_state();
+		return;
+	}
+
+	if (_msg == NET_MSG_LEAVE) {
+		var _leave_index = net_host_find_client(_ip, _port);
+		if (_leave_index < 0) {
+			return;
+		}
+		if (buffer_tell(_buffer) < buffer_get_size(_buffer)) {
+			var _leave_pid = buffer_read(_buffer, buffer_u8);
+			if (_leave_pid != obj_net.client_player_ids[_leave_index]) {
+				return;
+			}
+		}
+		obj_net.status_detail = obj_net.client_names[_leave_index] + " left lobby";
+		net_host_remove_client_index(_leave_index);
 		net_host_send_lobby_state();
 		return;
 	}
@@ -885,6 +968,7 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		if (_index < 0) {
 			return;
 		}
+		net_host_touch_client(_ip, _port);
 
 		var _pid = buffer_read(_buffer, buffer_u8);
 		if (_pid != obj_net.client_player_ids[_index]) {
@@ -913,6 +997,7 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		if (_windex < 0) {
 			return;
 		}
+		net_host_touch_client(_ip, _port);
 		var _wpid = buffer_read(_buffer, buffer_u8);
 		if (_wpid != obj_net.client_player_ids[_windex]) {
 			return;
@@ -1242,6 +1327,7 @@ function net_client_apply_snapshot(_buffer) {
 	var _bullet_count = buffer_read(_buffer, buffer_u8);
 	for (var _b = 0; _b < _bullet_count; _b++) {
 		var _bid = buffer_read(_buffer, buffer_u16);
+		var _bwid = buffer_read(_buffer, buffer_u8);
 		var _bx = buffer_read(_buffer, buffer_f32);
 		var _by = buffer_read(_buffer, buffer_f32);
 		var _bh = buffer_read(_buffer, buffer_f32);
@@ -1258,10 +1344,18 @@ function net_client_apply_snapshot(_buffer) {
 			_bullet.x = lerp(_bullet.x, _bx, 0.65);
 			_bullet.y = lerp(_bullet.y, _by, 0.65);
 		}
+		_bullet.weapon_id = _bwid;
+		var _bdef = weapon_def(_bwid);
+		if (_bdef != undefined) {
+			_bullet.sprite_index = _bdef.bullet_sprite;
+		}
 		_bullet.image_xscale = BULLET_DRAW_SCALE;
 		_bullet.image_yscale = BULLET_DRAW_SCALE;
 		_bullet.hsp = _bh;
 		_bullet.vsp = _bv;
+		if (_bh != 0 || _bv != 0) {
+			_bullet.image_angle = point_direction(0, 0, _bh, _bv);
+		}
 		_bullet.net_seen = true;
 	}
 

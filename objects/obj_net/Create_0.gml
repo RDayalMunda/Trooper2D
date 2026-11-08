@@ -29,7 +29,9 @@ client_cos_head = [];
 client_cos_torso = [];
 client_cos_leg = [];
 client_cos_hand = [];
+client_silent_frames = []; // lobby presence; reset on any packet from that client
 next_player_id = 2;
+lobby_keepalive_cooldown = 0;
 
 // LAN browser (client, pre-join)
 discovered = [];

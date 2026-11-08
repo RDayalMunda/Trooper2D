@@ -156,6 +156,7 @@ if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != 
 	_bullet.hsp = lengthdir_x(_spd, aim_dir);
 	_bullet.vsp = lengthdir_y(_spd, aim_dir);
 	_bullet.damage = bullet_damage;
+	_bullet.weapon_id = weapon_id;
 	_bullet.owner = id;
 	_bullet.owner_player_id = net_id;
 	_bullet.image_angle = aim_dir;

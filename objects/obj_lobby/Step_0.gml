@@ -229,17 +229,11 @@ if (_net.is_host) {
 	}
 } else {
 	if (_confirm && selected_slot == 0) {
-		global.net_mode = "offline";
-		global.menu_message = "";
-		net_shutdown();
-		room_goto(room_main_menu);
+		net_client_leave_to_menu();
 		exit;
 	}
 
 	if (ui_back_pressed()) {
-		global.net_mode = "offline";
-		global.menu_message = "";
-		net_shutdown();
-		room_goto(room_main_menu);
+		net_client_leave_to_menu();
 	}
 }

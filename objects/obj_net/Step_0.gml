@@ -39,6 +39,8 @@ if (is_host) {
 			net_host_send_lobby_state();
 		}
 
+		net_host_prune_silent_clients();
+
 		// Periodic LAN advertisement (plus DISCOVER replies).
 		beacon_cooldown -= 1;
 		if (beacon_cooldown <= 0) {
@@ -128,6 +130,13 @@ if (is_host) {
 				net_client_send_join();
 			}
 		}
+	} else if (phase == "lobby") {
+		// Keepalive so host drops us from the roster when we disconnect.
+		lobby_keepalive_cooldown -= 1;
+		if (lobby_keepalive_cooldown <= 0) {
+			lobby_keepalive_cooldown = NET_CLIENT_KEEPALIVE_FRAMES;
+			net_client_send_join();
+		}
 	} else if (phase == "match") {
 		net_client_send_input();
 
@@ -139,10 +148,7 @@ if (is_host) {
 		}
 		if (ui_back_pressed()) {
 			if (match_back_armed) {
-				global.net_mode = "offline";
-				global.menu_message = "";
-				net_shutdown();
-				room_goto(room_main_menu);
+				net_client_leave_to_menu();
 				exit;
 			}
 			match_back_armed = true;
@@ -157,10 +163,7 @@ if (is_host) {
 			_client_menu = true;
 		}
 		if (_client_menu) {
-			global.net_mode = "offline";
-			global.menu_message = "";
-			net_shutdown();
-			room_goto(room_main_menu);
+			net_client_leave_to_menu();
 		}
 	}
 }

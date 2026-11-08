@@ -36,9 +36,8 @@ if (hurt_cooldown > 0) {
 if (!alive) {
 	hsp = 0;
 	vsp = 0;
-	input_left = false;
-	input_right = false;
-	input_jet = false;
+	move_x = 0;
+	move_y = 0;
 	input_shoot = false;
 	input_reload = false;
 	// Only host / offline own respawn timing; clients wait for auth.
@@ -65,14 +64,20 @@ if (is_local) {
 	player_gather_input(id);
 }
 
-hsp = (input_right - input_left) * move_speed;
+// Analog move: stick/keyboard vector drives strafe + proportional jet.
+hsp = clamp(move_x, -1, 1) * move_speed;
 vsp = min(vsp + grav, max_fall);
 
-// Up / W / Space = jet thrust (no separate jump).
-if (input_jet && fuel > 0) {
-	vsp -= jet_acc;
+// Only upward tilt can jet; require clear up-intent so slight strafe wobble is free.
+var _jet_raw = clamp(-move_y, 0, 1);
+var _jet = 0;
+if (_jet_raw > jet_engage_min) {
+	_jet = (_jet_raw - jet_engage_min) / max(0.001, 1 - jet_engage_min);
+}
+if (_jet > 0.01 && fuel > 0) {
+	vsp -= jet_acc * _jet;
 	vsp = max(vsp, -max_rise);
-	fuel = max(0, fuel - fuel_drain);
+	fuel = max(0, fuel - fuel_drain * _jet);
 	fuel_idle_timer = 0;
 } else {
 	fuel_idle_timer += 1;

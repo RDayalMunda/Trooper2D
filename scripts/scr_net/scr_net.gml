@@ -126,17 +126,32 @@ function player_setup_net(_player, _player_id, _is_local, _display_name = undefi
 function player_gather_input(_player) {
 	var _mobile = input_is_mobile_touch();
 
-	_player.input_left = false;
-	_player.input_right = false;
-	_player.input_jet = false;
+	_player.move_x = 0;
+	_player.move_y = 0;
 	_player.input_shoot = false;
 	_player.input_reload = false;
 
 	if (!_mobile) {
-		_player.input_left = keyboard_check(ord("A")) || keyboard_check(vk_left);
-		_player.input_right = keyboard_check(ord("D")) || keyboard_check(vk_right);
+		var _kx = 0;
+		var _ky = 0;
+		if (keyboard_check(ord("A")) || keyboard_check(vk_left)) {
+			_kx -= 1;
+		}
+		if (keyboard_check(ord("D")) || keyboard_check(vk_right)) {
+			_kx += 1;
+		}
 		// Up thrust = jet (W / Up / Space). No separate jump.
-		_player.input_jet = keyboard_check(ord("W")) || keyboard_check(vk_up) || keyboard_check(vk_space);
+		if (keyboard_check(ord("W")) || keyboard_check(vk_up) || keyboard_check(vk_space)) {
+			_ky -= 1;
+		}
+		var _klen = point_distance(0, 0, _kx, _ky);
+		if (_klen > 1) {
+			_kx /= _klen;
+			_ky /= _klen;
+		}
+		_player.move_x = _kx;
+		_player.move_y = _ky;
+
 		_player.input_shoot = mouse_check_button(mb_left);
 		_player.input_reload = keyboard_check_pressed(ord("R"));
 
@@ -145,13 +160,13 @@ function player_gather_input(_player) {
 		_player.aim_dir = point_direction(_cx, _cy, mouse_x, mouse_y);
 	}
 
-	// Twin-stick / touch overlay — on mobile, aim ONLY from the right stick.
+	// Twin-stick / touch overlay — left stick is full analog move.
 	if (instance_exists(obj_touch_controls)) {
 		var _t = obj_touch_controls;
 		if (_t.left_active) {
-			_player.input_left = _player.input_left || (_t.left_nx < -TOUCH_STICK_DEADZONE);
-			_player.input_right = _player.input_right || (_t.left_nx > TOUCH_STICK_DEADZONE);
-			_player.input_jet = _player.input_jet || (_t.left_ny < -TOUCH_STICK_DEADZONE);
+			var _stick = input_stick_deadzone(_t.left_nx, _t.left_ny);
+			_player.move_x = _stick[0];
+			_player.move_y = _stick[1];
 		}
 		if (_t.right_active) {
 			_player.aim_dir = _t.right_dir;
@@ -446,12 +461,11 @@ function net_client_send_input() {
 		buffer_write(send_buffer, buffer_u8, local_player_id);
 
 		var _bits = 0;
-		if (_local.input_left) _bits |= 1;
-		if (_local.input_right) _bits |= 2;
-		if (_local.input_jet) _bits |= 4;
-		if (_local.input_shoot) _bits |= 8;
-		if (_local.input_reload) _bits |= 16;
+		if (_local.input_shoot) _bits |= 1;
+		if (_local.input_reload) _bits |= 2;
 		buffer_write(send_buffer, buffer_u8, _bits);
+		buffer_write(send_buffer, buffer_s8, clamp(round(_local.move_x * 127), -127, 127));
+		buffer_write(send_buffer, buffer_s8, clamp(round(_local.move_y * 127), -127, 127));
 		buffer_write(send_buffer, buffer_f32, _local.aim_dir);
 
 		network_send_udp(socket, host_ip, host_port, send_buffer, buffer_tell(send_buffer));
@@ -763,11 +777,10 @@ function net_host_handle_message(_msg, _buffer, _ip, _port) {
 		}
 
 		var _bits = buffer_read(_buffer, buffer_u8);
-		_player.input_left = (_bits & 1) != 0;
-		_player.input_right = (_bits & 2) != 0;
-		_player.input_jet = (_bits & 4) != 0;
-		_player.input_shoot = (_bits & 8) != 0;
-		_player.input_reload = (_bits & 16) != 0;
+		_player.input_shoot = (_bits & 1) != 0;
+		_player.input_reload = (_bits & 2) != 0;
+		_player.move_x = clamp(buffer_read(_buffer, buffer_s8) / 127, -1, 1);
+		_player.move_y = clamp(buffer_read(_buffer, buffer_s8) / 127, -1, 1);
 		_player.aim_dir = buffer_read(_buffer, buffer_f32);
 	}
 }

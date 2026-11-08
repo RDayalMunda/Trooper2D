@@ -3,6 +3,18 @@
 #macro TOUCH_FIRE_THRESHOLD 0.55
 #macro TOUCH_MAX_DEVICES 5
 
+/// @function input_stick_deadzone(_nx, _ny, _dead)
+/// @description Remap stick so values inside deadzone are 0 and outside scale 0..1.
+function input_stick_deadzone(_nx, _ny, _dead = TOUCH_STICK_DEADZONE) {
+	var _mag = point_distance(0, 0, _nx, _ny);
+	if (_mag <= _dead) {
+		return [0, 0];
+	}
+	var _scale = (_mag - _dead) / max(0.001, 1 - _dead);
+	_scale = clamp(_scale, 0, 1);
+	return [(_nx / _mag) * _scale, (_ny / _mag) * _scale];
+}
+
 /// @function input_is_mobile_touch()
 function input_is_mobile_touch() {
 	return (os_type == os_android || os_type == os_ios);

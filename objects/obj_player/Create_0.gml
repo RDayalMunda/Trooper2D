@@ -2,11 +2,13 @@ hsp = 0;
 vsp = 0;
 grav = 0.35;
 move_speed = 4;
-jet_acc = 0.75; // Strong enough to cancel a fall and climb
+jet_acc = 0.5; // Milder thrust — still beats gravity when held
 max_fall = 8;
-max_rise = 5; // Cap upward speed while jetting
-fuel = 100;
-fuel_max = 100;
+max_rise = 4; // Cap upward speed while jetting
+// Ignore small upward stick tilt while strafing (~20°+ needed to engage).
+jet_engage_min = 0.35;
+fuel = 150;
+fuel_max = 150;
 fuel_drain = 1.2;
 fuel_regen = 1.5;
 fuel_regen_delay = 100; // ~1.7s unused before regen starts
@@ -45,9 +47,8 @@ net_id = 0;
 is_local = true;
 display_name = "Trooper";
 aim_dir = 0;
-input_left = false;
-input_right = false;
-input_jet = false;
+move_x = 0; // -1..1 analog strafe
+move_y = 0; // -1..1 analog (negative = jet up)
 input_shoot = false;
 input_reload = false;
 

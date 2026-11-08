@@ -28,6 +28,7 @@ respawn_timer = 0;
 respawn_time = 90;
 hurt_cooldown = 0;
 hurt_cooldown_max = 30;
+hit_bar_timer = 0; // show floating HP when recently damaged (others only)
 hurt_zone_damage = 25;
 // Outside obj_fight_zone — harder than hurt zones.
 void_out_damage = 45;

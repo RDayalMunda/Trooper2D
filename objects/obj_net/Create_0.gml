@@ -48,6 +48,7 @@ max_players = LOBBY_MAX_PLAYERS_DEFAULT;
 match_frames_left = 0;
 lobby_roster = [];
 results = [];
+kill_feed = [];
 next_bullet_id = 1;
 next_weapon_pickup_id = 1;
 weapon_spawn_timer = WEAPON_SPAWN_FIRST_DELAY;
@@ -63,6 +64,7 @@ results_btn_menu = [0, 0, 0, 0];
 results_btn_menu_only = [0, 0, 0, 0];
 match_back_armed = false;
 match_back_timer = 0;
+host_silent_frames = 0; // client: frames since last host snapshot
 
 if (is_host) {
 	var _bind = net_bind_host_socket();

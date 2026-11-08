@@ -72,6 +72,17 @@ function match_hud_map_rect() {
 	return [_x1, _z[1], _x2, _z[3]];
 }
 
+/// @function match_hud_exit_rect()
+/// @description Exit Match button sits just left of the map panel.
+function match_hud_exit_rect() {
+	var _m = match_hud_map_rect();
+	var _s = ui_scale();
+	var _w = round(76 * _s);
+	var _x2 = _m[0] - 8;
+	var _x1 = _x2 - _w;
+	return [_x1, _m[1], _x2, _m[3]];
+}
+
 /// @function ui_pointer_pressed_in(_x1, _y1, _x2, _y2, _use_gui)
 function ui_pointer_pressed_in(_x1, _y1, _x2, _y2, _use_gui = false) {
 	if (_x2 <= _x1 || _y2 <= _y1) {

@@ -7,6 +7,10 @@ if (_net && obj_net.phase != "match") {
 	exit;
 }
 
+if (hit_bar_timer > 0) {
+	hit_bar_timer -= 1;
+}
+
 // Remote players on clients: interpolate toward latest auth snapshot.
 if (_client_match && !is_local) {
 	if (net_interp_t < 1) {
@@ -59,6 +63,7 @@ if (!alive) {
 			fuel = fuel_max;
 			fuel_idle_timer = 0;
 			hp_idle_timer = 0;
+			hit_bar_timer = 0;
 			weapon_restore_loadout(id);
 			hurt_cooldown = hurt_cooldown_max;
 			alive = true;
@@ -116,11 +121,15 @@ if (!_client_match && alive && instance_number(obj_fight_zone) > 0) {
 		hp -= void_out_damage;
 		hurt_cooldown = void_out_interval;
 		hp_idle_timer = 0;
+		if (!is_local) {
+			hit_bar_timer = PLAYER_HIT_BAR_TIME;
+		}
 		if (hp <= 0) {
 			hp = 0;
 			alive = false;
 			deaths += 1;
 			respawn_timer = respawn_time;
+			hit_bar_timer = 0;
 			hsp = 0;
 			vsp = 0;
 			reloading = false;

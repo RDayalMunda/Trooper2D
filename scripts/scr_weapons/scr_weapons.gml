@@ -327,7 +327,7 @@ function weapon_pickup_find_near(_player, _radius = WEAPON_PICKUP_RADIUS) {
 }
 
 /// @function weapon_siphon_from_pickup(_player, _pickup)
-/// @description Same gun: pull ammo into mag/reserve; destroy if emptied.
+/// @description Same gun: ammo goes to reserve only (never tops off mag); destroy if emptied.
 function weapon_siphon_from_pickup(_player, _pickup) {
 	if (_pickup.weapon_id != _player.weapon_id) {
 		return false;
@@ -338,13 +338,8 @@ function weapon_siphon_from_pickup(_player, _pickup) {
 		return true;
 	}
 
-	var _need_mag = max(0, _player.mag_size - _player.mag);
-	var _take = min(_need_mag, _pool);
-	_player.mag += _take;
-	_pool -= _take;
-
 	var _need_res = max(0, _player.reserve_max - _player.reserve);
-	_take = min(_need_res, _pool);
+	var _take = min(_need_res, _pool);
 	_player.reserve += _take;
 	_pool -= _take;
 

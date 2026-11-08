@@ -34,9 +34,17 @@ draw_trooper(
 	weapon_id
 );
 
-draw_set_halign(fa_center);
-draw_set_valign(fa_bottom);
-draw_set_color(image_blend);
-draw_text(_cx, y - 4, display_name);
-draw_set_halign(fa_left);
-draw_set_valign(fa_top);
+// Floating HP for other players briefly after they take damage.
+if (!is_local && hit_bar_timer > 0) {
+	var _bw = 28;
+	var _bh = 4;
+	var _bx = _cx - _bw * 0.5;
+	var _by = y - 8;
+	var _fill = clamp(hp / max(1, hp_max), 0, 1) * _bw;
+	draw_set_color(c_dkgray);
+	draw_rectangle(_bx, _by, _bx + _bw, _by + _bh, false);
+	draw_set_color(c_lime);
+	draw_rectangle(_bx, _by, _bx + _fill, _by + _bh, false);
+	draw_set_color(c_white);
+	draw_rectangle(_bx, _by, _bx + _bw, _by + _bh, true);
+}

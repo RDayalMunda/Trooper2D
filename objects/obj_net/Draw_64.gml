@@ -67,6 +67,11 @@ if (phase == "match") {
 	draw_set_color(c_white);
 	draw_text_transformed((_map[0] + _map[2]) * 0.5, (_map[1] + _map[3]) * 0.5, _map_text, _ts * 0.9, _ts * 0.9, 0);
 
+	var _exit = match_hud_exit_rect();
+	draw_ui_button(_exit[0], _exit[1], _exit[2], _exit[3], "Exit", false, _ts * 0.85);
+
+	killfeed_draw();
+
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 	draw_set_color(c_white);

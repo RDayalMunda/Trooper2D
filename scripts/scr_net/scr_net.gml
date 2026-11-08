@@ -17,18 +17,147 @@
 #macro NET_MSG_BEACON 13
 #macro NET_MSG_WANT_PICKUP 14
 #macro NET_MSG_LEAVE 15
+#macro NET_MSG_KILL_FEED 16
 
 #macro NET_REJECT_FULL 1
 #macro NET_REJECT_IN_MATCH 2
 #macro NET_DISCOVER_STALE_FRAMES 180
 #macro NET_CLIENT_TIMEOUT_FRAMES 180 // drop silent lobby clients (~3s)
+#macro NET_HOST_TIMEOUT_FRAMES 180 // clients leave match if host goes silent (~3s)
 #macro NET_CLIENT_KEEPALIVE_FRAMES 45
 #macro NET_NAME_BYTES 16
 #macro NET_BULLET_MAX 48
 #macro NET_SNAP_HARD 96
 #macro NET_MATCH_END_RESENDS 8
 #macro NET_MATCH_END_INTERVAL 12
+#macro KILLFEED_MAX 3
+#macro KILLFEED_LIFE 180 // 3 seconds
+#macro PLAYER_HIT_BAR_TIME 120 // 2 seconds
 // Ground guns: see NET_WEAPON_PICKUP_MAX in scr_weapons.
+
+/// @function killfeed_ensure()
+function killfeed_ensure() {
+	if (!instance_exists(obj_net)) {
+		return false;
+	}
+	if (!variable_instance_exists(obj_net, "kill_feed")) {
+		obj_net.kill_feed = [];
+	}
+	return true;
+}
+
+/// @function killfeed_push(_killer_name, _victim_name, _weapon_name, _killer_id, _victim_id)
+function killfeed_push(_killer_name, _victim_name, _weapon_name, _killer_id = 0, _victim_id = 0) {
+	if (!killfeed_ensure()) {
+		return;
+	}
+	array_insert(obj_net.kill_feed, 0, {
+		killer: player_name_sanitize(_killer_name),
+		victim: player_name_sanitize(_victim_name),
+		weapon: string(_weapon_name),
+		killer_id: _killer_id,
+		victim_id: _victim_id,
+		age: 0
+	});
+	while (array_length(obj_net.kill_feed) > KILLFEED_MAX) {
+		array_delete(obj_net.kill_feed, KILLFEED_MAX, 1);
+	}
+}
+
+/// @function killfeed_tick()
+function killfeed_tick() {
+	if (!killfeed_ensure()) {
+		return;
+	}
+	for (var _i = array_length(obj_net.kill_feed) - 1; _i >= 0; _i--) {
+		obj_net.kill_feed[_i].age += 1;
+		if (obj_net.kill_feed[_i].age >= KILLFEED_LIFE) {
+			array_delete(obj_net.kill_feed, _i, 1);
+		}
+	}
+}
+
+/// @function killfeed_draw()
+function killfeed_draw() {
+	if (!killfeed_ensure()) {
+		return;
+	}
+	var _n = array_length(obj_net.kill_feed);
+	if (_n <= 0) {
+		return;
+	}
+
+	var _local_id = obj_net.local_player_id;
+	var _s = ui_scale();
+	var _ts = ui_text_scale() * 0.85;
+	var _br = weapon_prompt_button_rect();
+	// Sit just under the pickup button (and its "E / tap" hint line).
+	var _y = _br[3] + round(24 * _s);
+	var _cx = (_br[0] + _br[2]) * 0.5;
+	var _row_h = round(28 * _s);
+	var _pad = round(8 * _s);
+
+	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	for (var _i = 0; _i < _n; _i++) {
+		var _e = obj_net.kill_feed[_i];
+		var _msg = _e.killer + " killed " + _e.victim + " with " + _e.weapon;
+		var _fade = 1 - (_e.age / KILLFEED_LIFE);
+		_fade = clamp(_fade * 1.25, 0, 1);
+
+		var _col = make_color_rgb(200, 200, 200);
+		if (_e.killer_id == _local_id && _local_id > 0) {
+			_col = c_lime;
+		} else if (_e.victim_id == _local_id && _local_id > 0) {
+			_col = c_red;
+		}
+
+		var _tw = string_width(_msg) * _ts;
+		var _x1 = _cx - _tw * 0.5 - _pad;
+		var _x2 = _cx + _tw * 0.5 + _pad;
+		var _y1 = _y + _i * (_row_h + round(4 * _s));
+		var _y2 = _y1 + _row_h;
+
+		var _old_a = draw_get_alpha();
+		draw_set_alpha(0.35 * _fade);
+		draw_set_color(c_black);
+		draw_rectangle(_x1, _y1, _x2, _y2, false);
+		draw_set_alpha(_fade);
+		draw_set_color(_col);
+		draw_text_transformed(_cx, (_y1 + _y2) * 0.5, _msg, _ts, _ts, 0);
+		draw_set_alpha(_old_a);
+	}
+	draw_set_halign(fa_left);
+	draw_set_valign(fa_top);
+	draw_set_color(c_white);
+}
+
+/// @function net_host_broadcast_kill(_killer_name, _victim_name, _weapon_id, _killer_id, _victim_id)
+function net_host_broadcast_kill(_killer_name, _victim_name, _weapon_id, _killer_id, _victim_id) {
+	var _wname = weapon_name(_weapon_id);
+	killfeed_push(_killer_name, _victim_name, _wname, _killer_id, _victim_id);
+
+	if (!instance_exists(obj_net) || !obj_net.is_host) {
+		return;
+	}
+	if (array_length(obj_net.client_ips) <= 0) {
+		return;
+	}
+
+	with (obj_net) {
+		buffer_seek(send_buffer, buffer_seek_start, 0);
+		buffer_write(send_buffer, buffer_u8, NET_MSG_KILL_FEED);
+		net_write_name(send_buffer, _killer_name);
+		net_write_name(send_buffer, _victim_name);
+		buffer_write(send_buffer, buffer_u8, _weapon_id);
+		buffer_write(send_buffer, buffer_u8, _killer_id);
+		buffer_write(send_buffer, buffer_u8, _victim_id);
+		var _size = buffer_tell(send_buffer);
+		for (var _c = 0; _c < array_length(client_ips); _c++) {
+			network_send_udp(socket, client_ips[_c], client_ports[_c], send_buffer, _size);
+		}
+	}
+}
 
 /// @function net_write_name(_buffer, _name)
 function net_write_name(_buffer, _name) {
@@ -407,6 +536,34 @@ function net_client_leave_to_menu() {
 	room_goto(room_main_menu);
 }
 
+/// @function net_leave_match_to_menu(_message)
+/// @description Leave match/results for the main menu. Host notifies clients first.
+function net_leave_match_to_menu(_message = "") {
+	if (!instance_exists(obj_net)) {
+		global.net_mode = "offline";
+		global.menu_message = _message;
+		room_goto(room_main_menu);
+		return;
+	}
+
+	if (obj_net.is_host) {
+		global.net_mode = "offline";
+		global.menu_message = _message;
+		net_host_notify_left();
+		room_goto(room_main_menu);
+		return;
+	}
+
+	if (obj_net.is_client) {
+		net_client_send_leave();
+	}
+
+	global.net_mode = "offline";
+	global.menu_message = _message;
+	net_shutdown();
+	room_goto(room_main_menu);
+}
+
 /// @function net_host_kick_player(_player_id)
 function net_host_kick_player(_player_id) {
 	var _index = net_host_find_client_by_id(_player_id);
@@ -726,6 +883,7 @@ function net_begin_match() {
 		phase = "match";
 		match_frames_left = match_time_sec * 60;
 		results = [];
+		kill_feed = [];
 		next_bullet_id = 1;
 		next_weapon_pickup_id = 1;
 		weapon_spawn_timer = WEAPON_SPAWN_FIRST_DELAY;
@@ -1131,6 +1289,8 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		obj_net.phase = "match";
 		obj_net.match_frames_left = obj_net.match_time_sec * 60;
 		obj_net.results = [];
+		obj_net.kill_feed = [];
+		obj_net.host_silent_frames = 0;
 		with (obj_player) {
 			instance_destroy();
 		}
@@ -1139,6 +1299,16 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		}
 		weapon_pickup_clear_all();
 		room_goto(arena_room_from_index(obj_net.map_index));
+		return;
+	}
+
+	if (_msg == NET_MSG_KILL_FEED) {
+		var _kname = net_read_name(_buffer);
+		var _vname = net_read_name(_buffer);
+		var _wid = buffer_read(_buffer, buffer_u8);
+		var _kid = buffer_read(_buffer, buffer_u8);
+		var _vid = buffer_read(_buffer, buffer_u8);
+		killfeed_push(_kname, _vname, weapon_name(_wid), _kid, _vid);
 		return;
 	}
 
@@ -1151,7 +1321,7 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 	}
 
 	if (_msg == NET_MSG_HOST_LEFT) {
-		global.menu_message = "Host left the lobby";
+		global.menu_message = "Host left the match";
 		global.net_mode = "offline";
 		net_shutdown();
 		room_goto(room_main_menu);
@@ -1212,6 +1382,7 @@ function net_client_handle_message(_msg, _buffer, _ip, _port) {
 		if (!is_arena_room() || obj_net.phase != "match") {
 			return;
 		}
+		obj_net.host_silent_frames = 0;
 		net_client_apply_snapshot(_buffer);
 	}
 }
@@ -1253,9 +1424,21 @@ function net_client_apply_snapshot(_buffer) {
 
 		_player.is_local = _is_local;
 		_player.display_name = player_name_sanitize(_name);
+
+		var _was_alive = _player.alive;
+		var _prev_hp = _player.hp;
+
 		if (!_is_local) {
 			cosmetics_apply_ids(_player, _cos[0], _cos[1], _cos[2], _cos[3]);
+			// Brief HP bar only after real damage — never on spawn/respawn.
+			if (!_spawned && _was_alive && _alive && _hp < _prev_hp) {
+				_player.hit_bar_timer = PLAYER_HIT_BAR_TIME;
+			}
 		}
+		if (_spawned || (!_was_alive && _alive)) {
+			_player.hit_bar_timer = 0;
+		}
+
 		_player.hp = _hp;
 		// Authoritative loadout (also corrects client's random starter pick).
 		if (_spawned || !_is_local || _player.weapon_id != _wid) {
@@ -1268,8 +1451,6 @@ function net_client_apply_snapshot(_buffer) {
 		_player.fuel = _fuel;
 		_player.kills = clamp(_kills, 0, 999);
 		_player.deaths = clamp(_deaths, 0, 999);
-
-		var _was_alive = _player.alive;
 		_player.alive = _alive;
 
 		if (_is_local) {

@@ -51,6 +51,7 @@ if (is_host) {
 		match_frames_left -= 1;
 		status_text = "Match " + format_match_time(ceil(match_frames_left / 60));
 		status_detail = arena_name_from_index(map_index);
+		killfeed_tick();
 
 		snapshot_cooldown -= 1;
 		if (snapshot_cooldown <= 0) {
@@ -62,6 +63,12 @@ if (is_host) {
 			net_end_match();
 		}
 
+		var _exit = match_hud_exit_rect();
+		if (ui_pointer_pressed_in(_exit[0], _exit[1], _exit[2], _exit[3], true)) {
+			net_leave_match_to_menu();
+			exit;
+		}
+
 		if (match_back_timer > 0) {
 			match_back_timer -= 1;
 			if (match_back_timer <= 0) {
@@ -70,10 +77,7 @@ if (is_host) {
 		}
 		if (ui_back_pressed()) {
 			if (match_back_armed) {
-				global.net_mode = "offline";
-				global.menu_message = "";
-				net_host_notify_left();
-				room_goto(room_main_menu);
+				net_leave_match_to_menu();
 				exit;
 			}
 			match_back_armed = true;
@@ -107,10 +111,7 @@ if (is_host) {
 		if (_to_lobby) {
 			net_return_to_lobby();
 		} else if (_to_menu) {
-			global.net_mode = "offline";
-			global.menu_message = "";
-			net_shutdown();
-			room_goto(room_main_menu);
+			net_leave_match_to_menu();
 		}
 	}
 } else if (is_client) {
@@ -138,7 +139,20 @@ if (is_host) {
 			net_client_send_join();
 		}
 	} else if (phase == "match") {
+		killfeed_tick();
 		net_client_send_input();
+
+		host_silent_frames += 1;
+		if (host_silent_frames >= NET_HOST_TIMEOUT_FRAMES) {
+			net_leave_match_to_menu("Host left the match");
+			exit;
+		}
+
+		var _exit_c = match_hud_exit_rect();
+		if (ui_pointer_pressed_in(_exit_c[0], _exit_c[1], _exit_c[2], _exit_c[3], true)) {
+			net_leave_match_to_menu();
+			exit;
+		}
 
 		if (match_back_timer > 0) {
 			match_back_timer -= 1;
@@ -148,7 +162,7 @@ if (is_host) {
 		}
 		if (ui_back_pressed()) {
 			if (match_back_armed) {
-				net_client_leave_to_menu();
+				net_leave_match_to_menu();
 				exit;
 			}
 			match_back_armed = true;
@@ -163,7 +177,7 @@ if (is_host) {
 			_client_menu = true;
 		}
 		if (_client_menu) {
-			net_client_leave_to_menu();
+			net_leave_match_to_menu();
 		}
 	}
 }

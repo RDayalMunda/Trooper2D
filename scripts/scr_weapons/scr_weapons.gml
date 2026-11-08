@@ -536,8 +536,16 @@ function grenade_throw(_player) {
 	return _g;
 }
 
+/// @function grenade_has_los(_x1, _y1, _x2, _y2)
+/// @description True if no obj_solid blocks the blast ray between two points.
+function grenade_has_los(_x1, _y1, _x2, _y2) {
+	// collision_line returns the first solid instance hit, or noone if clear.
+	return (collision_line(_x1, _y1, _x2, _y2, obj_solid, false, true) == noone);
+}
+
 /// @function grenade_damage_at(_x, _y, _owner_player_id)
 /// @description Radial blast: FRAG_DAMAGE_CENTER at epicenter → 0 at FRAG_DAMAGE_RADIUS.
+/// Walls block damage — LoS must be clear (no obj_solid on the ray).
 function grenade_damage_at(_x, _y, _owner_player_id) {
 	with (obj_player) {
 		if (!alive) {
@@ -546,6 +554,10 @@ function grenade_damage_at(_x, _y, _owner_player_id) {
 		var _pc = weapon_player_center(id);
 		var _dist = point_distance(_x, _y, _pc[0], _pc[1]);
 		if (_dist >= FRAG_DAMAGE_RADIUS) {
+			continue;
+		}
+		// Cover: solid between nade and player → no damage (blast can't pass walls).
+		if (!grenade_has_los(_x, _y, _pc[0], _pc[1])) {
 			continue;
 		}
 		var _falloff = 1 - (_dist / FRAG_DAMAGE_RADIUS);

@@ -109,7 +109,16 @@ function cosmetics_save(_head, _torso, _leg, _hand) {
 
 #macro TROOPER_PREVIEW_SCALE 0.20
 #macro TROOPER_MATCH_SCALE 0.09
-#macro TROOPER_WALK_ANIM_SPEED 0.22
+/// Radians of walk cycle per frame at full move_speed.
+#macro TROOPER_WALK_CYCLE_RATE 0.35
+/// Hip height below torso origin (sprite units * scale). Peek under torso.
+#macro TROOPER_LEG_BASE_Y 78
+/// Resting half-stance width (sprite units * scale).
+#macro TROOPER_LEG_HIP 22
+/// Forward/back stride amplitude while moving.
+#macro TROOPER_LEG_STRIDE 48
+/// Small step lift while moving.
+#macro TROOPER_LEG_LIFT 10
 
 /// @function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir, _scale, _walk_phase, _moving, _blend, _weapon_sprite)
 /// @description Match/preview body. Order: legs → torso → head → gun → hand. Art faces right.
@@ -117,30 +126,38 @@ function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir = 0, _scale =
 	var _face_left = (lengthdir_x(1, _aim_dir) < 0);
 	var _xscale = _face_left ? -_scale : _scale;
 	var _yscale = _scale;
-	var _aim_ang = _face_left ? (180 - _aim_dir) : _aim_dir;
+	var _sabs = abs(_scale);
+	// Gun/hand: flip via yscale so aim_dir rotation stays correct on both sides.
+	var _gun_xs = _sabs;
+	var _gun_ys = _face_left ? -_sabs : _sabs;
+	var _gun_ang = _aim_dir;
 
-	var _leg_count = cosmetics_part_count(COS_PART_LEG);
-	var _leg_a = cosmetics_get_sprite(COS_PART_LEG, _leg);
-	var _leg_b = cosmetics_get_sprite(COS_PART_LEG, (_leg + 1) mod _leg_count);
+	var _leg_spr = cosmetics_get_sprite(COS_PART_LEG, _leg);
 	var _torso_spr = cosmetics_get_sprite(COS_PART_TORSO, _torso);
 	var _hand_spr = cosmetics_get_sprite(COS_PART_HAND, _hand);
 	var _head_spr = cosmetics_get_sprite(COS_PART_HEAD, _head);
 
-	var _left_spr = _leg_a;
-	var _right_spr = _leg_a;
-	if (_moving && _leg_b != -1) {
-		var _swap = (floor(_walk_phase) mod 2) == 0;
-		_left_spr = _swap ? _leg_a : _leg_b;
-		_right_spr = _swap ? _leg_b : _leg_a;
+	// Neutral hip pose; stride swings opposite legs and restores when idle (_moving false / phase 0).
+	var _hip = TROOPER_LEG_HIP * _sabs;
+	var _leg_base_y = _y + (TROOPER_LEG_BASE_Y * _sabs);
+	var _stride = 0;
+	var _lift_l = 0;
+	var _lift_r = 0;
+	if (_moving) {
+		_stride = sin(_walk_phase) * (TROOPER_LEG_STRIDE * _sabs);
+		_lift_l = max(0, sin(_walk_phase)) * (TROOPER_LEG_LIFT * _sabs);
+		_lift_r = max(0, sin(_walk_phase + pi)) * (TROOPER_LEG_LIFT * _sabs);
 	}
+	// World left/right stay screen-left/right; stride flips with facing so the lead leg matches motion.
+	var _fwd = _face_left ? -1 : 1;
+	var _lx = _x - _hip - (_stride * _fwd);
+	var _rx = _x + _hip + (_stride * _fwd);
+	var _ly = _leg_base_y - _lift_l;
+	var _ry = _leg_base_y - _lift_r;
 
-	var _leg_y = _y + (130 * _scale);
-	var _sep = max(10, 75 * abs(_scale));
-	if (_left_spr != -1) {
-		draw_sprite_ext(_left_spr, 0, _x - _sep, _leg_y, _xscale, _yscale, 0, _blend, 1);
-	}
-	if (_right_spr != -1) {
-		draw_sprite_ext(_right_spr, 0, _x + _sep, _leg_y, _xscale, _yscale, 0, _blend, 1);
+	if (_leg_spr != -1) {
+		draw_sprite_ext(_leg_spr, 0, _lx, _ly, _xscale, _yscale, 0, _blend, 1);
+		draw_sprite_ext(_leg_spr, 0, _rx, _ry, _xscale, _yscale, 0, _blend, 1);
 	}
 
 	if (_torso_spr != -1) {
@@ -156,19 +173,19 @@ function draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir = 0, _scale =
 	var _hy = _y + lengthdir_y(_reach, _aim_dir);
 
 	if (_weapon_sprite != -1) {
-		draw_sprite_ext(_weapon_sprite, 0, _hx, _hy, _xscale, _yscale, _aim_ang, _blend, 1);
+		draw_sprite_ext(_weapon_sprite, 0, _hx, _hy, _gun_xs, _gun_ys, _gun_ang, _blend, 1);
 	}
 
 	// Hand grip on top of gun.
 	if (_hand_spr != -1) {
-		draw_sprite_ext(_hand_spr, 0, _hx, _hy, _xscale, _yscale, _aim_ang, _blend, 1);
+		draw_sprite_ext(_hand_spr, 0, _hx, _hy, _gun_xs, _gun_ys, _gun_ang, _blend, 1);
 	}
 }
 
 /// @function draw_trooper_preview(_x, _y, _head, _torso, _leg, _hand, _aim_dir, _scale, _walk_frame)
 function draw_trooper_preview(_x, _y, _head, _torso, _leg, _hand, _aim_dir = 0, _scale = TROOPER_PREVIEW_SCALE, _walk_frame = 0) {
 	var _moving = (_walk_frame > 0);
-	var _phase = _walk_frame * 0.08;
+	var _phase = _walk_frame * TROOPER_WALK_CYCLE_RATE;
 	draw_trooper(_x, _y, _head, _torso, _leg, _hand, _aim_dir, _scale, _phase, _moving, c_white);
 }
 

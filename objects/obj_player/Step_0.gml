@@ -20,10 +20,11 @@ if (_client_match && !is_local) {
 		y = net_to_y;
 		aim_dir = net_aim_to;
 	}
-	// Approximate walk anim from snapshot motion.
+	// Approximate walk anim from snapshot motion (speed-matched).
 	var _rdx = abs(net_to_x - net_from_x);
 	if (_rdx > 1) {
-		walk_phase += TROOPER_WALK_ANIM_SPEED;
+		var _rmag = clamp(_rdx / max(0.001, move_speed), 0.2, 1.5);
+		walk_phase += TROOPER_WALK_CYCLE_RATE * _rmag;
 		hsp = net_to_x - net_from_x; // for draw moving check
 	} else {
 		walk_phase = 0;
@@ -99,10 +100,10 @@ if (array_length(_landed) > 0) {
 	vsp = 0;
 }
 
-// Walk cycle for layered legs
+// Walk cycle: phase rate tracks move speed; snap to rest pose when still.
 var _walk_mag = max(abs(hsp) / max(0.001, move_speed), abs(move_x));
-if (_walk_mag > 0.2) {
-	walk_phase += TROOPER_WALK_ANIM_SPEED * clamp(_walk_mag, 0.2, 1.5);
+if (_walk_mag > 0.15) {
+	walk_phase += TROOPER_WALK_CYCLE_RATE * clamp(_walk_mag, 0.15, 1.5);
 } else {
 	walk_phase = 0;
 }
@@ -161,6 +162,8 @@ if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != 
 	if (_wdef != undefined) {
 		_bullet.sprite_index = _wdef.bullet_sprite;
 	}
+	_bullet.image_xscale = BULLET_DRAW_SCALE;
+	_bullet.image_yscale = BULLET_DRAW_SCALE;
 
 	if (_client_match) {
 		// Local muzzle flash only — host owns damage bullets.

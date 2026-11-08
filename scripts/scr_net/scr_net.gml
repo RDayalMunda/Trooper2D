@@ -148,6 +148,7 @@ function player_setup_net(_player, _player_id, _is_local, _display_name = undefi
 		_player.display_name = global.player_name;
 	}
 	if (_is_local) {
+		cosmetics_load();
 		cosmetics_apply_local(_player);
 	} else if (is_array(_cosmetics) && array_length(_cosmetics) >= 4) {
 		cosmetics_apply_ids(_player, _cosmetics[0], _cosmetics[1], _cosmetics[2], _cosmetics[3]);
@@ -1257,6 +1258,8 @@ function net_client_apply_snapshot(_buffer) {
 			_bullet.x = lerp(_bullet.x, _bx, 0.65);
 			_bullet.y = lerp(_bullet.y, _by, 0.65);
 		}
+		_bullet.image_xscale = BULLET_DRAW_SCALE;
+		_bullet.image_yscale = BULLET_DRAW_SCALE;
 		_bullet.hsp = _bh;
 		_bullet.vsp = _bv;
 		_bullet.net_seen = true;

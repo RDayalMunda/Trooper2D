@@ -6,7 +6,10 @@
 #macro WEAPON_SPAWN_FIRST_DELAY 180 // first drop ~3s into match
 #macro WEAPON_PICKUP_LIFE 1800 // 30s on the ground
 #macro WEAPON_WORLD_SCALE 0.10
+#macro BULLET_DRAW_SCALE 0.12
 #macro WEAPON_PICKUP_RADIUS 56
+#macro WEAPON_PICKUP_GRAV 0.45
+#macro WEAPON_PICKUP_MAX_FALL 10
 #macro NET_WEAPON_PICKUP_MAX 16
 
 /// @function weapon_def(_weapon_id)
@@ -25,7 +28,7 @@ function weapon_def(_weapon_id) {
 				reload_time: 70,
 				bullet_speed: 13,
 				damage: 14,
-				zoom_levels: [1, 2]
+				zoom_levels: [1] // pistol: closest only
 			};
 		case WEAPON_UZI:
 			return {
@@ -39,7 +42,7 @@ function weapon_def(_weapon_id) {
 				reload_time: 85,
 				bullet_speed: 12,
 				damage: 9,
-				zoom_levels: [1, 2]
+				zoom_levels: [1, 2] // SMG unlocks 2x
 			};
 	}
 	return undefined;
@@ -227,7 +230,13 @@ function weapon_pickup_setup(_pickup, _weapon_id, _mag = undefined, _reserve = u
 	_pickup.sprite_index = _def.sprite;
 	_pickup.image_xscale = WEAPON_WORLD_SCALE;
 	_pickup.image_yscale = WEAPON_WORLD_SCALE;
+	// Small upright mask so scaled gun art doesn't block half the arena.
+	_pickup.mask_index = spr_player;
 	_pickup.visible = true;
+	if (!variable_instance_exists(_pickup, "grounded")) {
+		_pickup.grounded = false;
+		_pickup.vsp = 0;
+	}
 }
 
 /// @function weapon_pickup_spawn_at(_spawn, _weapon_id)
@@ -249,25 +258,9 @@ function weapon_pickup_spawn_at(_spawn, _weapon_id = undefined) {
 }
 
 /// @function weapon_world_tick()
-/// @description Host/offline: lifetime already on pickups; try a periodic spawn.
+/// @description Legacy hook — each obj_weapon_spawn_point now ticks itself.
 function weapon_world_tick() {
-	if (instance_exists(obj_net) && !obj_net.is_host) {
-		return;
-	}
-	if (!instance_exists(obj_net) || obj_net.phase != "match") {
-		return;
-	}
-
-	obj_net.weapon_spawn_timer -= 1;
-	if (obj_net.weapon_spawn_timer > 0) {
-		return;
-	}
-	obj_net.weapon_spawn_timer = WEAPON_SPAWN_INTERVAL;
-
-	var _sp = weapon_spawn_point_get_free_random();
-	if (_sp != noone) {
-		weapon_pickup_spawn_at(_sp);
-	}
+	// no-op
 }
 
 /// @function weapon_pickup_alloc_net_id()
@@ -393,14 +386,14 @@ function weapon_swap_with_pickup(_player, _pickup) {
 }
 
 /// @function weapon_prompt_button_rect()
+/// @description Centered under the match timer (timer panel bottom ~44*ui_scale).
 function weapon_prompt_button_rect() {
 	var _gw = display_get_gui_width();
-	var _gh = display_get_gui_height();
 	var _s = ui_scale();
-	var _bw = round(280 * _s);
-	var _bh = round(58 * _s);
+	var _bw = round(260 * _s);
+	var _bh = round(48 * _s);
 	var _x1 = round((_gw - _bw) * 0.5);
-	var _y1 = round(_gh * 0.58);
+	var _y1 = round(52 * _s); // just below match timer
 	return [_x1, _y1, _x1 + _bw, _y1 + _bh];
 }
 

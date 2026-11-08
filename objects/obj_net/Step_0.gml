@@ -50,8 +50,6 @@ if (is_host) {
 		status_text = "Match " + format_match_time(ceil(match_frames_left / 60));
 		status_detail = arena_name_from_index(map_index);
 
-		weapon_world_tick();
-
 		snapshot_cooldown -= 1;
 		if (snapshot_cooldown <= 0) {
 			snapshot_cooldown = 2;

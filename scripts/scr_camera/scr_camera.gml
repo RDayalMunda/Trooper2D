@@ -1,12 +1,14 @@
 #macro CAM_VIEW_INDEX 0
-/// World coverage at 1x vs a "fit whole room" view. Lower = more zoomed in.
-#macro CAM_ZOOM_1_COVERAGE 0.70
+/// World coverage vs a "fit whole room" view. Lower = more zoomed in.
+#macro CAM_ZOOM_1_COVERAGE 0.38
+/// 2x sits between 1x and a full 2× pullback (was 0.76).
+#macro CAM_ZOOM_2_COVERAGE 0.55
 #macro CAM_FOLLOW_LERP 0.22
 
 /// @function cam_default_zoom_levels()
-/// @description Levels available until guns unlock more (2x/4x/6x/8x).
+/// @description Fallback before a gun is equipped (closest only).
 function cam_default_zoom_levels() {
-	return [1, 2];
+	return [1];
 }
 
 /// @function cam_init_player(_player)
@@ -22,9 +24,18 @@ function cam_set_zoom_levels(_player, _levels) {
 	if (!is_array(_levels) || array_length(_levels) <= 0) {
 		_levels = cam_default_zoom_levels();
 	}
+	// Keep current zoom value if the new gun still supports it; else snap to closest.
+	var _want = variable_instance_exists(_player, "zoom_level") ? _player.zoom_level : _levels[0];
+	var _idx = 0;
+	for (var _i = 0; _i < array_length(_levels); _i++) {
+		if (_levels[_i] == _want) {
+			_idx = _i;
+			break;
+		}
+	}
 	_player.zoom_levels = _levels;
-	_player.zoom_index = clamp(_player.zoom_index, 0, array_length(_levels) - 1);
-	_player.zoom_level = _levels[_player.zoom_index];
+	_player.zoom_index = _idx;
+	_player.zoom_level = _levels[_idx];
 }
 
 /// @function cam_cycle_zoom(_player)
@@ -105,7 +116,10 @@ function cam_fit_size() {
 /// @description Higher zoom_level = wider FOV (more map visible).
 function cam_view_size_for_zoom(_zoom_level) {
 	var _fit = cam_fit_size();
-	var _mul = CAM_ZOOM_1_COVERAGE * max(1, _zoom_level);
+	var _mul = CAM_ZOOM_1_COVERAGE;
+	if (_zoom_level >= 2) {
+		_mul = CAM_ZOOM_2_COVERAGE;
+	}
 	return [_fit[0] * _mul, _fit[1] * _mul];
 }
 
@@ -132,6 +146,9 @@ function cam_update_follow() {
 	var _size = cam_view_size_for_zoom(_zoom);
 	var _vw = _size[0];
 	var _vh = _size[1];
+	var _old_vw = camera_get_view_width(_cam);
+	var _old_vh = camera_get_view_height(_cam);
+	var _zoom_changed = (abs(_old_vw - _vw) > 0.5 || abs(_old_vh - _vh) > 0.5);
 	camera_set_view_size(_cam, _vw, _vh);
 
 	var _tx = room_width * 0.5;
@@ -149,8 +166,8 @@ function cam_update_follow() {
 	var _cur_y = camera_get_view_y(_cam);
 	var _nx;
 	var _ny;
-	// Snap on first frame / huge jumps (respawn) so the camera doesn't slowly crawl.
-	if (point_distance(_cur_x, _cur_y, _desired_x, _desired_y) > 280) {
+	// Zoom change / respawn: snap so the player stays frame-center (no slide).
+	if (_zoom_changed || point_distance(_cur_x, _cur_y, _desired_x, _desired_y) > 280) {
 		_nx = _desired_x;
 		_ny = _desired_y;
 	} else {

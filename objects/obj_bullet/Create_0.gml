@@ -8,3 +8,5 @@ is_predicted = false;
 net_id = 0;
 net_seen = true;
 life = -1;
+image_xscale = BULLET_DRAW_SCALE;
+image_yscale = BULLET_DRAW_SCALE;

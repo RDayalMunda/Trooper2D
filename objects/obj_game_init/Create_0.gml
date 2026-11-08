@@ -5,6 +5,9 @@ if (instance_number(obj_game_init) > 1) {
 	exit;
 }
 
+cosmetics_load();
+player_name_load();
+
 if (input_is_mobile_touch()) {
 	// Keeps the screen from timing out while the game is in the foreground.
 	os_powersave_enable(false);

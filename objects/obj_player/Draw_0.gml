@@ -17,6 +17,7 @@ if (is_local && !input_is_mobile_touch()) {
 var _moving = (abs(hsp) > 0.35 || abs(move_x) > 0.25);
 var _wdef = weapon_def(weapon_id);
 var _wspr = (_wdef != undefined) ? _wdef.sprite : -1;
+// White body so Customize colors match in-match (team color is name only).
 draw_trooper(
 	_cx,
 	_cy,
@@ -28,13 +29,13 @@ draw_trooper(
 	trooper_scale,
 	walk_phase,
 	_moving,
-	image_blend,
+	c_white,
 	_wspr
 );
 
 draw_set_halign(fa_center);
 draw_set_valign(fa_bottom);
-draw_set_color(c_white);
+draw_set_color(image_blend);
 draw_text(_cx, y - 4, display_name);
 draw_set_halign(fa_left);
 draw_set_valign(fa_top);

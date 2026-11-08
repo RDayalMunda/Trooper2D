@@ -62,11 +62,15 @@ if (!alive) {
 } else if (pickup_prompt_net_id > 0 && pickup_prompt_name != "") {
 	var _br = weapon_prompt_button_rect();
 	var _label = "Pick up " + pickup_prompt_name;
-	draw_ui_button(_br[0], _br[1], _br[2], _br[3], _label, true);
+	var _ts = ui_text_scale();
+	draw_ui_panel(_br[0], _br[1], _br[2], _br[3], 0.40);
 	draw_set_halign(fa_center);
+	draw_set_valign(fa_middle);
+	draw_set_color(c_white);
+	draw_text_transformed((_br[0] + _br[2]) * 0.5, (_br[1] + _br[3]) * 0.5, _label, _ts, _ts, 0);
 	draw_set_valign(fa_top);
 	draw_set_color(c_ltgray);
-	draw_text_transformed((_br[0] + _br[2]) * 0.5, _br[3] + round(6 * _s), "E / tap", ui_text_scale() * 0.75, ui_text_scale() * 0.75, 0);
+	draw_text_transformed((_br[0] + _br[2]) * 0.5, _br[3] + round(4 * _s), "E / tap", _ts * 0.7, _ts * 0.7, 0);
 	draw_set_halign(fa_left);
 	draw_set_valign(fa_top);
 }

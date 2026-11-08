@@ -297,6 +297,11 @@ if (menu_state == "customize") {
 	customize_torso = _vals[1];
 	customize_leg = _vals[2];
 	customize_hand = _vals[3];
+	// Keep globals in sync so Host/Join before Back still uses the preview look.
+	global.cosmetic_head = customize_head;
+	global.cosmetic_torso = customize_torso;
+	global.cosmetic_leg = customize_leg;
+	global.cosmetic_hand = customize_hand;
 
 	// Scroll list (drag + wheel)
 	var _mx = mouse_x;

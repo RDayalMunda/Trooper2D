@@ -155,14 +155,17 @@ function weapon_bullet_spread_deg(_weapon_id) {
 }
 
 /// @function weapon_play_fire_sfx(_weapon_id)
-/// @description Per-bullet gunfire: short shot body + quieter trail (M9 for now).
+/// @description Per-bullet gunfire: short shot body + quieter trail.
 function weapon_play_fire_sfx(_weapon_id) {
+	// Slight pitch variance so rapid fire doesn't sound identical.
+	var _pitch = random_range(0.96, 1.04);
 	if (_weapon_id == WEAPON_M9) {
-		// Slight pitch variance so rapid taps don't sound identical.
-		var _pitch = random_range(0.96, 1.04);
 		audio_play_sound(snd_weapon_m9_bullet_shot, 10, false, 1.0, 0, _pitch);
 		// Trail is ambience — keep it quieter so overlaps don't muddy the mix.
 		audio_play_sound(snd_weapon_m9_bullet_trail, 5, false, 0.4, 0, _pitch);
+	} else if (_weapon_id == WEAPON_UZI) {
+		audio_play_sound(snd_weapon_uzi_bullet_shot, 10, false, 1.0, 0, _pitch);
+		audio_play_sound(snd_weapon_uzi_bullet_trail, 5, false, 0.35, 0, _pitch);
 	}
 }
 
@@ -620,6 +623,8 @@ function grenade_explode(_grenade) {
 /// @function grenade_spawn_explosion_fx(_x, _y)
 function grenade_spawn_explosion_fx(_x, _y) {
 	var _fx = instance_create_layer(_x, _y, "Instances", obj_frag_explosion);
+	var _pitch = random_range(0.94, 1.06);
+	audio_play_sound(snd_weapon_frag_explosion, 12, false, 1.0, 0, _pitch);
 	return _fx;
 }
 

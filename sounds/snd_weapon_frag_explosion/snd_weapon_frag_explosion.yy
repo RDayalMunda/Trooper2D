@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"snd_weapon_frag_explosion",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":2.9779592,
+  "exportDir":"",
+  "name":"snd_weapon_frag_explosion",
+  "parent":{
+    "name":"Trooper2D",
+    "path":"Trooper2D.yyp",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"snd_weapon_frag_explosion.mp3",
+  "volume":1.0,
+}

@@ -28,8 +28,9 @@
 #macro FRAG_BOUNCE_MIN 1.6 // below this vertical impact, prefer roll over hop
 #macro FRAG_ROLL_FRICTION 0.965 // middle ground: rolls, but slows sooner than ice-smooth
 #macro FRAG_SPIN_RATE 3.0 // visual roll only (spin var — NOT image_angle)
-#macro FRAG_DAMAGE_CENTER 100
-#macro FRAG_DAMAGE_RADIUS 150 // zero damage at/beyond this distance
+#macro FRAG_DAMAGE_CENTER 140 // enough to kill full HP even slightly off-center
+#macro FRAG_LETHAL_RADIUS 55 // within this: full center damage (proximity kill)
+#macro FRAG_DAMAGE_RADIUS 160 // zero damage at/beyond this distance
 #macro FRAG_THROW_COOLDOWN 25
 // Match ground-gun scale so the nade sits with M9/UZI world size.
 #macro FRAG_WORLD_SCALE WEAPON_WORLD_SCALE
@@ -58,6 +59,11 @@ function weapon_def(_weapon_id) {
 				// Max travel = this × view width at 1x zoom (see weapon_bullet_max_range).
 				// Shorter than UZI — pistol is the close-range option.
 				range_mul: 0.65,
+				// Aim cue only (not bullet range): short line, short dashes, gap after muzzle.
+				aim_line_len: 64,
+				aim_start: 22,
+				aim_dash: 7,
+				aim_gap: 5,
 				zoom_levels: [1], // pistol: closest only
 				// Hand vs nozzle origin (sprite px, art faces right: -x = toward grip).
 				hand_ox: -130,
@@ -79,6 +85,11 @@ function weapon_def(_weapon_id) {
 				spread_deg: 7.5,
 				// Same reach the M9 used to have (~1× 1x-zoom screen width).
 				range_mul: 1.0,
+				// Aim cue only (not bullet range): a bit longer than M9, longer dashes.
+				aim_line_len: 96,
+				aim_start: 26,
+				aim_dash: 12,
+				aim_gap: 8,
 				zoom_levels: [1, 2], // SMG unlocks 2x
 				// Grip sits left + down from nozzle when facing right.
 				hand_ox: -110,
@@ -167,6 +178,55 @@ function weapon_play_fire_sfx(_weapon_id) {
 		audio_play_sound(snd_weapon_uzi_bullet_shot, 10, false, 1.0, 0, _pitch);
 		audio_play_sound(snd_weapon_uzi_bullet_trail, 5, false, 0.35, 0, _pitch);
 	}
+}
+
+/// @function weapon_draw_aim_dashes(_muzzle_x, _muzzle_y, _aim_dir, _weapon_id)
+/// @description Short dashed aim cue ahead of the muzzle (angle only — not bullet range).
+function weapon_draw_aim_dashes(_muzzle_x, _muzzle_y, _aim_dir, _weapon_id) {
+	var _def = weapon_def(_weapon_id);
+	if (_def == undefined || !weapon_is_gun(_weapon_id)) {
+		return;
+	}
+	var _start = variable_struct_exists(_def, "aim_start") ? _def.aim_start : 20;
+	var _span = variable_struct_exists(_def, "aim_line_len") ? _def.aim_line_len : 72;
+	var _dash = variable_struct_exists(_def, "aim_dash") ? _def.aim_dash : 8;
+	var _gap = variable_struct_exists(_def, "aim_gap") ? _def.aim_gap : 6;
+	var _period = max(1, _dash + _gap);
+	var _end = _start + _span;
+
+	// Clip against solids so the cue doesn't punch through walls.
+	var _len = _start;
+	var _step = 4;
+	while (_len < _end) {
+		var _tx = _muzzle_x + lengthdir_x(_len + _step, _aim_dir);
+		var _ty = _muzzle_y + lengthdir_y(_len + _step, _aim_dir);
+		if (collision_point(_tx, _ty, obj_solid, false, true) != noone) {
+			break;
+		}
+		_len += _step;
+	}
+	if (_len <= _start + _dash) {
+		return;
+	}
+
+	var _old_a = draw_get_alpha();
+	var _old_c = draw_get_color();
+	draw_set_alpha(0.55);
+	draw_set_color(c_white);
+
+	var _d = _start;
+	while (_d < _len) {
+		var _seg = min(_dash, _len - _d);
+		var _x1 = _muzzle_x + lengthdir_x(_d, _aim_dir);
+		var _y1 = _muzzle_y + lengthdir_y(_d, _aim_dir);
+		var _x2 = _muzzle_x + lengthdir_x(_d + _seg, _aim_dir);
+		var _y2 = _muzzle_y + lengthdir_y(_d + _seg, _aim_dir);
+		draw_line_width(_x1, _y1, _x2, _y2, 1.5);
+		_d += _period;
+	}
+
+	draw_set_alpha(_old_a);
+	draw_set_color(_old_c);
 }
 
 /// @function weapon_starter_ids()
@@ -559,7 +619,7 @@ function grenade_has_los(_x1, _y1, _x2, _y2) {
 }
 
 /// @function grenade_damage_at(_x, _y, _owner_player_id)
-/// @description Radial blast: FRAG_DAMAGE_CENTER at epicenter → 0 at FRAG_DAMAGE_RADIUS.
+/// @description Radial blast: full damage inside FRAG_LETHAL_RADIUS, then falloff to 0 at FRAG_DAMAGE_RADIUS.
 /// Walls block damage — LoS must be clear (no obj_solid on the ray).
 function grenade_damage_at(_x, _y, _owner_player_id) {
 	with (obj_player) {
@@ -575,8 +635,13 @@ function grenade_damage_at(_x, _y, _owner_player_id) {
 		if (!grenade_has_los(_x, _y, _pc[0], _pc[1])) {
 			continue;
 		}
-		var _falloff = 1 - (_dist / FRAG_DAMAGE_RADIUS);
-		var _dmg = max(1, round(FRAG_DAMAGE_CENTER * _falloff));
+		var _dmg;
+		if (_dist <= FRAG_LETHAL_RADIUS) {
+			_dmg = FRAG_DAMAGE_CENTER;
+		} else {
+			var _t = (_dist - FRAG_LETHAL_RADIUS) / max(1, FRAG_DAMAGE_RADIUS - FRAG_LETHAL_RADIUS);
+			_dmg = max(1, round(FRAG_DAMAGE_CENTER * (1 - _t)));
+		}
 		hp -= _dmg;
 		hp_idle_timer = 0;
 		if (!is_local) {

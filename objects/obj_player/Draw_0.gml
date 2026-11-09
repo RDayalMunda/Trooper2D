@@ -34,6 +34,12 @@ draw_trooper(
 	weapon_id
 );
 
+// Local aim dashes — length/dash size are gun properties (M9 short, UZI long).
+if (is_local && weapon_is_gun(weapon_id)) {
+	var _muzzle = trooper_muzzle_pos(_cx, _cy, aim_dir, trooper_scale);
+	weapon_draw_aim_dashes(_muzzle[0], _muzzle[1], aim_dir, weapon_id);
+}
+
 // Floating HP for other players briefly after they take damage.
 if (!is_local && hit_bar_timer > 0) {
 	var _bw = 28;

@@ -1,0 +1,26 @@
+{
+  "$GMSound":"v2",
+  "%Name":"snd_weapon_m9_bullet_trail",
+  "audioGroupId":{
+    "name":"audiogroup_default",
+    "path":"audiogroups/audiogroup_default",
+  },
+  "bitDepth":1,
+  "channelFormat":0,
+  "compression":0,
+  "compressionQuality":4,
+  "conversionMode":0,
+  "duration":0.5888209,
+  "exportDir":"",
+  "name":"snd_weapon_m9_bullet_trail",
+  "parent":{
+    "name":"Trooper2D",
+    "path":"Trooper2D.yyp",
+  },
+  "preload":false,
+  "resourceType":"GMSound",
+  "resourceVersion":"2.0",
+  "sampleRate":44100,
+  "soundFile":"snd_weapon_m9_bullet_trail.wav",
+  "volume":1.0,
+}

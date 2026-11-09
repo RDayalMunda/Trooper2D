@@ -217,6 +217,7 @@ if (input_shoot && !reloading && mag > 0 && shoot_cooldown <= 0 && weapon_id != 
 
 	mag -= 1;
 	shoot_cooldown = fire_cooldown_max;
+	weapon_play_fire_sfx(weapon_id);
 
 	if (mag <= 0) {
 		weapon_try_begin_reload(id);

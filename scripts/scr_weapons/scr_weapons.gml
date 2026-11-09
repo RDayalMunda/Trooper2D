@@ -154,6 +154,18 @@ function weapon_bullet_spread_deg(_weapon_id) {
 	return max(0, _def.spread_deg);
 }
 
+/// @function weapon_play_fire_sfx(_weapon_id)
+/// @description Per-bullet gunfire: short shot body + quieter trail (M9 for now).
+function weapon_play_fire_sfx(_weapon_id) {
+	if (_weapon_id == WEAPON_M9) {
+		// Slight pitch variance so rapid taps don't sound identical.
+		var _pitch = random_range(0.96, 1.04);
+		audio_play_sound(snd_weapon_m9_bullet_shot, 10, false, 1.0, 0, _pitch);
+		// Trail is ambience — keep it quieter so overlaps don't muddy the mix.
+		audio_play_sound(snd_weapon_m9_bullet_trail, 5, false, 0.4, 0, _pitch);
+	}
+}
+
 /// @function weapon_starter_ids()
 /// @description Guns a player can spawn holding (never FRAG).
 function weapon_starter_ids() {

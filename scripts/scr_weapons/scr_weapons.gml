@@ -2,6 +2,7 @@
 #macro WEAPON_M9 1
 #macro WEAPON_UZI 2
 #macro WEAPON_FRAG 3 // ground loot / throwable slot — never replaces the gun
+#macro WEAPON_AK47 4
 
 #macro WEAPON_SPAWN_INTERVAL 3600 // 60s between world drops
 #macro WEAPON_SPAWN_FIRST_DELAY 180 // first drop ~3s into match
@@ -95,6 +96,33 @@ function weapon_def(_weapon_id) {
 				hand_ox: -110,
 				hand_oy: 32
 			};
+		case WEAPON_AK47:
+			return {
+				id: WEAPON_AK47,
+				name: "AK47",
+				// Asset folders are swapped vs content: rifle art is in *_bullet, tracer in spr_weapon_ak47.
+				sprite: spr_weapon_ak47_bullet,
+				bullet_sprite: spr_weapon_ak47,
+				mag_size: 30,
+				reserve_max: 90,
+				fire_cooldown: 8,
+				reload_time: 100,
+				bullet_speed: 14,
+				damage: 12,
+				// Tighter than UZI, looser than M9 — controllable rifle spray.
+				spread_deg: 4.5,
+				// Longest reach of the current guns.
+				range_mul: 1.25,
+				// Aim cue: longest of the set (still a short direction marker).
+				aim_line_len: 112,
+				aim_start: 28,
+				aim_dash: 14,
+				aim_gap: 9,
+				zoom_levels: [1, 2],
+				// Grip behind mag, below barrel (sprite px from muzzle origin at tip).
+				hand_ox: -300,
+				hand_oy: 55
+			};
 		case WEAPON_FRAG:
 			// Not a gun — inventory throwable. Spawned as world loot only.
 			return {
@@ -120,7 +148,7 @@ function weapon_def(_weapon_id) {
 
 /// @function weapon_is_gun(_weapon_id)
 function weapon_is_gun(_weapon_id) {
-	return (_weapon_id == WEAPON_M9 || _weapon_id == WEAPON_UZI);
+	return (_weapon_id == WEAPON_M9 || _weapon_id == WEAPON_UZI || _weapon_id == WEAPON_AK47);
 }
 
 /// @function weapon_is_frag(_weapon_id)
@@ -177,6 +205,9 @@ function weapon_play_fire_sfx(_weapon_id) {
 	} else if (_weapon_id == WEAPON_UZI) {
 		audio_play_sound(snd_weapon_uzi_bullet_shot, 10, false, 1.0, 0, _pitch);
 		audio_play_sound(snd_weapon_uzi_bullet_trail, 5, false, 0.35, 0, _pitch);
+	} else if (_weapon_id == WEAPON_AK47) {
+		audio_play_sound(snd_weapon_ak47_bullet_shot, 10, false, 1.0, 0, _pitch);
+		audio_play_sound(snd_weapon_ak47_bullet_trail, 5, false, 0.35, 0, _pitch);
 	}
 }
 
@@ -232,7 +263,7 @@ function weapon_draw_aim_dashes(_muzzle_x, _muzzle_y, _aim_dir, _weapon_id) {
 /// @function weapon_starter_ids()
 /// @description Guns a player can spawn holding (never FRAG).
 function weapon_starter_ids() {
-	return [WEAPON_M9, WEAPON_UZI];
+	return [WEAPON_M9, WEAPON_UZI, WEAPON_AK47];
 }
 
 /// @function weapon_random_starter_id()
@@ -244,7 +275,7 @@ function weapon_random_starter_id() {
 /// @function weapon_world_loot_ids()
 /// @description Random ground spawn table — guns + frag packs.
 function weapon_world_loot_ids() {
-	return [WEAPON_M9, WEAPON_UZI, WEAPON_FRAG];
+	return [WEAPON_M9, WEAPON_UZI, WEAPON_AK47, WEAPON_FRAG];
 }
 
 /// @function weapon_random_loot_id()
